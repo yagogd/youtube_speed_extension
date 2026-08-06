@@ -1,150 +1,174 @@
-console.log("🎬 Transcript script loaded (top-line finalize mode)");
+(() => {
+  if (window.__ytTranscriptContentLoaded) return;
+  window.__ytTranscriptContentLoaded = true;
 
-function createTranscriptPanel() {
-  let panel = document.getElementById("yt-transcript-panel");
-  if (panel) return panel;
+  function formatTime(milliseconds) {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = String(totalSeconds % 60).padStart(2, "0");
+    return `${minutes}:${seconds}`;
+  }
 
-  panel = document.createElement("div");
-  Object.assign(panel, { id: "yt-transcript-panel" });
-  Object.assign(panel.style, {
-    position: "fixed",
-    top: "60px",
-    right: "0",
-    width: "400px",
-    height: "calc(100% - 60px)",
-    background: "rgba(0,0,0,0.85)",
-    color: "white",
-    padding: "15px",
-    overflowY: "auto",
-    fontSize: "14px",
-    lineHeight: "1.4",
-    zIndex: "99999",
-    whiteSpace: "pre-line",
-    transition: "height .3s ease, padding .3s ease, opacity .3s ease",
-  });
+  function createPanel() {
+    const existing = document.getElementById("yt-transcript-panel");
+    if (existing) {
+      return {
+        panel: existing,
+        title: existing.querySelector("[data-transcript-title]"),
+        content: existing.querySelector("[data-transcript-content]"),
+      };
+    }
 
-  // Botón minimizar/restaurar
-  const btn = document.createElement("button");
-  btn.textContent = "—";
-  btn.title = "Minimizar / Restaurar";
-  Object.assign(btn.style, {
-    position: "absolute",
-    top: "5px",
-    right: "5px",
-    background: "rgba(255,255,255,0.2)",
-    color: "white",
-    border: "none",
-    fontSize: "18px",
-    cursor: "pointer",
-    borderRadius: "5px",
-    width: "30px",
-    height: "30px",
-    lineHeight: "20px",
-    textAlign: "center",
-  });
+    const panel = document.createElement("aside");
+    panel.id = "yt-transcript-panel";
+    Object.assign(panel.style, {
+      position: "fixed",
+      top: "60px",
+      right: "0",
+      width: "400px",
+      height: "calc(100vh - 60px)",
+      boxSizing: "border-box",
+      background: "rgba(15, 15, 15, 0.96)",
+      color: "white",
+      padding: "14px",
+      overflowY: "auto",
+      fontFamily: "Arial, sans-serif",
+      fontSize: "14px",
+      lineHeight: "1.45",
+      zIndex: "99999",
+      boxShadow: "-4px 0 14px rgba(0, 0, 0, .35)",
+    });
 
-  const textBox = document.createElement("div");
-  textBox.id = "yt-transcript-text";
-  textBox.style.marginTop = "30px";
-  textBox.innerHTML = "<b>🎧 Capturando subtítulos (línea superior finalizada)…</b>\n";
+    const header = document.createElement("div");
+    Object.assign(header.style, {
+      position: "sticky",
+      top: "-14px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: "10px",
+      margin: "-14px -14px 12px",
+      padding: "12px 14px",
+      background: "#0f0f0f",
+      borderBottom: "1px solid #444",
+    });
 
-  let minimized = false;
-  btn.addEventListener("click", () => {
-    minimized = !minimized;
-    if (minimized) {
-      panel.style.height = "40px";
-      panel.style.paddingTop = "30px";
-      panel.style.overflowY = "hidden";
-      panel.style.opacity = "0.6";
-      btn.textContent = "+";
-    } else {
-      panel.style.height = "calc(100% - 60px)";
-      panel.style.paddingTop = "15px";
-      panel.style.overflowY = "auto";
-      panel.style.opacity = "1";
-      btn.textContent = "—";
+    const title = document.createElement("strong");
+    title.dataset.transcriptTitle = "";
+    title.textContent = "Cargando transcripción…";
+
+    const minimize = document.createElement("button");
+    minimize.textContent = "—";
+    minimize.title = "Minimizar o restaurar";
+    Object.assign(minimize.style, {
+      border: "0",
+      borderRadius: "5px",
+      width: "30px",
+      height: "30px",
+      background: "#333",
+      color: "white",
+      cursor: "pointer",
+    });
+
+    let minimized = false;
+    minimize.addEventListener("click", () => {
+      minimized = !minimized;
+      panel.style.height = minimized ? "54px" : "calc(100vh - 60px)";
+      panel.style.overflowY = minimized ? "hidden" : "auto";
+      minimize.textContent = minimized ? "+" : "—";
+    });
+
+    const content = document.createElement("div");
+    content.dataset.transcriptContent = "";
+    content.textContent = "Buscando una pista de subtítulos…";
+
+    header.append(title, minimize);
+    panel.append(header, content);
+    document.body.appendChild(panel);
+    return { panel, title, content };
+  }
+
+  const ui = createPanel();
+
+  function showMessage(title, message) {
+    ui.title.textContent = title;
+    ui.content.replaceChildren();
+    const text = document.createElement("p");
+    text.textContent = message;
+    ui.content.appendChild(text);
+  }
+
+  function renderTranscript(data) {
+    const automaticLabel = data.isAutomatic ? " · automática" : "";
+    ui.title.textContent = `Transcripción · ${data.languageName}${automaticLabel}`;
+    ui.content.replaceChildren();
+
+    if (!data.cues.length) {
+      showMessage("Transcripción vacía", "La pista existe, pero no contiene texto legible.");
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    data.cues.forEach((cue) => {
+      const row = document.createElement("button");
+      row.type = "button";
+      Object.assign(row.style, {
+        display: "grid",
+        gridTemplateColumns: "46px 1fr",
+        gap: "8px",
+        width: "100%",
+        padding: "6px 4px",
+        border: "0",
+        borderRadius: "4px",
+        background: "transparent",
+        color: "white",
+        textAlign: "left",
+        cursor: "pointer",
+        font: "inherit",
+      });
+
+      const time = document.createElement("span");
+      time.textContent = formatTime(cue.startMs);
+      time.style.color = "#3ea6ff";
+
+      const text = document.createElement("span");
+      text.textContent = cue.text;
+
+      row.addEventListener("mouseenter", () => { row.style.background = "#292929"; });
+      row.addEventListener("mouseleave", () => { row.style.background = "transparent"; });
+      row.addEventListener("click", () => {
+        const video = document.querySelector("video");
+        if (video) video.currentTime = cue.startMs / 1000;
+      });
+
+      row.append(time, text);
+      fragment.appendChild(row);
+    });
+
+    ui.content.appendChild(fragment);
+  }
+
+  window.addEventListener("message", (event) => {
+    if (event.source !== window || event.data?.source !== "YT_TRANSCRIPT_EXTENSION") return;
+
+    switch (event.data.type) {
+      case "YT_TRANSCRIPT_LOADING":
+        showMessage("Cargando transcripción…", "Buscando una pista de subtítulos…");
+        break;
+      case "YT_TRANSCRIPT_READY":
+        renderTranscript(event.data);
+        break;
+      case "YT_TRANSCRIPT_UNAVAILABLE":
+        showMessage("Sin transcripción", "Este vídeo no ofrece ninguna pista de subtítulos.");
+        break;
+      case "YT_TRANSCRIPT_ERROR":
+        showMessage("No se pudo cargar", event.data.message || "Ha ocurrido un error desconocido.");
+        break;
     }
   });
 
-  panel.appendChild(btn);
-  panel.appendChild(textBox);
-  document.body.appendChild(panel);
-  return { panel, textBox };
-}
-
-// Lee las líneas visibles actuales desde el overlay de YouTube (hasta 2 líneas)
-function getCurrentCaptionLines() {
-  // Tomamos el contenedor que dibuja los subtítulos
-  const container = document.querySelector(".ytp-caption-window-container");
-  if (!container) return [];
-
-  // innerText preserva saltos de línea visuales
-  const raw = container.innerText || "";
-  // partimos por saltos de línea y normalizamos
-  const lines = raw
-    .split("\n")
-    .map(s => s.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
-
-  // YouTube suele mostrar máx. 2 líneas; nos quedamos con las dos primeras
-  return lines.slice(0, 2);
-}
-
-function startCaptionObserver() {
-  const { panel, textBox } = createTranscriptPanel();
-
-  let prevLines = [];        // líneas visibles en el tick anterior (arriba, abajo)
-  let lastAppended = "";     // última línea “finalizada” que ya añadimos
-  let lastMutationTs = 0;
-
-  const appendFinalized = (line) => {
-    if (!line || line === lastAppended) return;
-    const el = document.createElement("div");
-    el.textContent = line;
-    textBox.appendChild(el);
-    panel.scrollTop = panel.scrollHeight;
-    lastAppended = line;
-  };
-
-  // Observa cambios en el overlay de subtítulos
-  const observer = new MutationObserver(() => {
-    // Throttle ligero para evitar ráfagas excesivas
-    const now = Date.now();
-    if (now - lastMutationTs < 80) return;
-    lastMutationTs = now;
-
-    const curr = getCurrentCaptionLines(); // [top, bottom] (si existen)
-
-    // Regla clave:
-    // - Añadimos SOLO la línea superior del frame anterior CUANDO YA NO ESTÉ en el frame actual.
-    //   Eso indica que esa línea se “terminó” y YouTube la retiró (subió/quitó).
-    if (prevLines.length > 0) {
-      const prevTop = prevLines[0];
-
-      // Si la línea superior anterior ya no está visible (ni arriba ni abajo), la damos por finalizada.
-      const stillVisible = curr.includes(prevTop);
-
-      if (!stillVisible && prevTop && prevTop !== lastAppended) {
-        // Evita falsos positivos por microcambios (espacios, signos)
-        const normalizedPrevTop = prevTop.replace(/\s+/g, " ").trim();
-        appendFinalized(normalizedPrevTop);
-      }
-    }
-
-    // Actualizamos el estado
-    prevLines = curr;
-  });
-
-  const waitForContainer = setInterval(() => {
-    const container = document.querySelector(".ytp-caption-window-container");
-    if (container) {
-      clearInterval(waitForContainer);
-      observer.observe(container, { childList: true, subtree: true, characterData: true });
-      console.log("✅ Top-line finalize mode ON");
-      // Inicializa prevLines con el estado actual (no añadimos nada aún)
-      prevLines = getCurrentCaptionLines();
-    }
-  }, 300);
-}
-
-startCaptionObserver();
+  const script = document.createElement("script");
+  script.src = chrome.runtime.getURL("inject.js");
+  script.onload = () => script.remove();
+  (document.head || document.documentElement).appendChild(script);
+})();

@@ -5,7 +5,8 @@
   "description": "Controla la velocidad y muestra subtítulos de YouTube",
   "permissions": [
     "activeTab",
-    "scripting"
+    "scripting",
+    "storage"
   ],
   "host_permissions": [
     "https://www.youtube.com/*",
