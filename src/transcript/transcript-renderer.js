@@ -22,7 +22,8 @@
     const text = document.createElement("span");
     text.className = "ytx-transcript-row__text";
     text.textContent = block.text;
-    row.append(time, text);
+    const actions = ytx.notes.createBlockActions(block, row);
+    row.append(time, text, actions);
     return row;
   }
 
@@ -43,6 +44,8 @@
     blocks.forEach((block, index) => fragment.appendChild(createBlockRow(block, index)));
     ui.content.replaceChildren(fragment);
     state.activeBlockIndex = -1;
+    ytx.search.refresh();
+    ytx.notes.refreshMarkers();
     ytx.sync.start(ytx.sync.updateActiveBlock);
   }
 
@@ -69,7 +72,9 @@
       }
       ui.content.appendChild(fragment);
       state.renderedBlockCount = targetCount;
-      ui.content.scrollTop = ui.content.scrollHeight;
+      ytx.search.refresh();
+      ytx.notes.refreshMarkers();
+      if (state.autoScrollEnabled) ui.content.scrollTop = ui.content.scrollHeight;
     }
     ytx.sync.updateActiveBlock();
   }
@@ -81,6 +86,7 @@
     ui.content.replaceChildren();
     state.renderedBlockCount = 0;
     state.activeBlockIndex = -1;
+    ytx.search.refresh();
     ytx.sync.start(updateProgressive);
   }
 

@@ -9,6 +9,9 @@
     syncTimer: null,
     renderedBlockCount: 0,
     activeBlockIndex: -1,
+    autoScrollEnabled: true,
+    search: { query: "", matches: [], currentMatch: -1 },
+    savedNotes: [],
   };
   ytx.isWatchPage = () => location.pathname === "/watch" && new URL(location.href).searchParams.has("v");
 })();

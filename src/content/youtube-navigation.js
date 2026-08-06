@@ -6,8 +6,10 @@
   function onNavigate() {
     state.transcript = null;
     state.displayBlocks = [];
+    state.autoScrollEnabled = true;
     if (state.settings.enabled && ytx.isWatchPage()) {
       ytx.panel.showMessage("Cargando transcripción…", "Buscando una pista de subtítulos…");
+      ytx.notes.loadCurrent();
     } else {
       ytx.panel.remove();
     }

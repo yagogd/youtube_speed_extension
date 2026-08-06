@@ -47,7 +47,7 @@
   function setupAdaptiveHeader(ui) {
     const update = () => {
       const rect = ui.panel.getBoundingClientRect();
-      const compact = rect.height < 340 || rect.width < 360;
+      const compact = rect.height < 340 || rect.width < 520;
       ui.panel.classList.toggle("ytx-panel--compact", compact);
       ui.title.textContent = compact ? "Transcripción" : ui.title.dataset.fullTitle;
       ui.copyButton.textContent = compact ? "⧉" : "Copiar todo";
@@ -75,6 +75,36 @@
     title.dataset.fullTitle = "Cargando transcripción…";
     title.textContent = title.dataset.fullTitle;
 
+    const speedControl = document.createElement("div");
+    speedControl.className = "ytx-speed-control";
+
+    const speedDownButton = document.createElement("button");
+    speedDownButton.type = "button";
+    speedDownButton.className = "ytx-speed-control__button";
+    speedDownButton.textContent = "−";
+    speedDownButton.title = "Reducir 0,25x";
+
+    const speedInput = document.createElement("input");
+    speedInput.className = "ytx-speed-control__input";
+    speedInput.type = "number";
+    speedInput.min = "0.1";
+    speedInput.step = "0.25";
+    speedInput.value = "1";
+    speedInput.title = "Velocidad del vídeo";
+
+    const speedUpButton = document.createElement("button");
+    speedUpButton.type = "button";
+    speedUpButton.className = "ytx-speed-control__button";
+    speedUpButton.textContent = "+";
+    speedUpButton.title = "Aumentar 0,25x";
+
+    const speedResetButton = document.createElement("button");
+    speedResetButton.type = "button";
+    speedResetButton.className = "ytx-speed-control__reset";
+    speedResetButton.textContent = "1×";
+    speedResetButton.title = "Restablecer a 1x";
+    speedControl.append(speedDownButton, speedInput, speedUpButton, speedResetButton);
+
     const copyButton = document.createElement("button");
     copyButton.type = "button";
     copyButton.className = "ytx-button ytx-button--copy";
@@ -87,6 +117,24 @@
     collapseHeaderButton.className = "ytx-button ytx-button--collapse-header";
     collapseHeaderButton.textContent = "⌃";
     collapseHeaderButton.title = "Ocultar la cabecera";
+
+    const searchToggle = document.createElement("button");
+    searchToggle.type = "button";
+    searchToggle.className = "ytx-button ytx-button--search";
+    searchToggle.textContent = "⌕";
+    searchToggle.title = "Buscar en la transcripción";
+
+    const bookmarkButton = document.createElement("button");
+    bookmarkButton.type = "button";
+    bookmarkButton.className = "ytx-button ytx-button--bookmark";
+    bookmarkButton.textContent = "☆";
+    bookmarkButton.title = "Guardar el momento actual";
+
+    const notesToggle = document.createElement("button");
+    notesToggle.type = "button";
+    notesToggle.className = "ytx-button ytx-button--notes";
+    notesToggle.textContent = "☷";
+    notesToggle.title = "Marcadores de este vídeo";
 
     const minimizeButton = document.createElement("button");
     minimizeButton.type = "button";
@@ -105,8 +153,69 @@
     content.dataset.transcriptContent = "";
     content.textContent = "Buscando una pista de subtítulos…";
 
-    header.append(title, collapseHeaderButton, copyButton, minimizeButton, closeButton);
-    panel.append(header, content);
+    const searchBar = document.createElement("div");
+    searchBar.className = "ytx-search";
+    const searchInput = document.createElement("input");
+    searchInput.className = "ytx-search__input";
+    searchInput.type = "search";
+    searchInput.placeholder = "Buscar en la transcripción…";
+    searchInput.value = state.search.query;
+    const searchCounter = document.createElement("span");
+    searchCounter.className = "ytx-search__counter";
+    searchCounter.textContent = "0/0";
+    const searchPrevious = document.createElement("button");
+    searchPrevious.type = "button";
+    searchPrevious.className = "ytx-search__button";
+    searchPrevious.textContent = "↑";
+    searchPrevious.title = "Coincidencia anterior";
+    const searchNext = document.createElement("button");
+    searchNext.type = "button";
+    searchNext.className = "ytx-search__button";
+    searchNext.textContent = "↓";
+    searchNext.title = "Coincidencia siguiente";
+    const searchClose = document.createElement("button");
+    searchClose.type = "button";
+    searchClose.className = "ytx-search__button";
+    searchClose.textContent = "×";
+    searchClose.title = "Cerrar búsqueda";
+    searchBar.append(searchInput, searchCounter, searchPrevious, searchNext, searchClose);
+
+    const notesDrawer = document.createElement("section");
+    notesDrawer.className = "ytx-notes";
+    const notesHeading = document.createElement("strong");
+    notesHeading.className = "ytx-notes__heading";
+    notesHeading.textContent = "Marcadores de este vídeo";
+    const notesList = document.createElement("div");
+    notesList.className = "ytx-notes__list";
+    notesDrawer.append(notesHeading, notesList);
+
+    const noteEditor = document.createElement("section");
+    noteEditor.className = "ytx-note-editor";
+    const noteEditorHeading = document.createElement("div");
+    noteEditorHeading.className = "ytx-note-editor__heading";
+    const noteEditorTime = document.createElement("strong");
+    const noteEditorText = document.createElement("span");
+    noteEditorText.className = "ytx-note-editor__text";
+    noteEditorHeading.append(noteEditorTime, noteEditorText);
+    const noteEditorInput = document.createElement("textarea");
+    noteEditorInput.className = "ytx-note-editor__input";
+    noteEditorInput.placeholder = "Añade una nota opcional…";
+    const noteEditorActions = document.createElement("div");
+    noteEditorActions.className = "ytx-note-editor__actions";
+    const noteEditorCancel = document.createElement("button");
+    noteEditorCancel.className = "ytx-button";
+    noteEditorCancel.textContent = "Cancelar";
+    const noteEditorSave = document.createElement("button");
+    noteEditorSave.className = "ytx-button ytx-note-editor__save";
+    noteEditorSave.textContent = "Guardar";
+    noteEditorActions.append(noteEditorCancel, noteEditorSave);
+    noteEditor.append(noteEditorHeading, noteEditorInput, noteEditorActions);
+
+    const headerActions = document.createElement("div");
+    headerActions.className = "ytx-panel__actions";
+    headerActions.append(searchToggle, bookmarkButton, notesToggle, collapseHeaderButton, copyButton, minimizeButton, closeButton);
+    header.append(title, speedControl, headerActions);
+    panel.append(header, searchBar, notesDrawer, noteEditor, content);
     (document.fullscreenElement || document.body).appendChild(panel);
 
     const ui = {
@@ -114,6 +223,26 @@
       header,
       title,
       content,
+      speedControl,
+      speedInput,
+      headerActions,
+      searchToggle,
+      searchBar,
+      searchInput,
+      searchCounter,
+      searchPrevious,
+      searchNext,
+      searchClose,
+      bookmarkButton,
+      notesToggle,
+      notesDrawer,
+      notesList,
+      noteEditor,
+      noteEditorTime,
+      noteEditorText,
+      noteEditorInput,
+      noteEditorCancel,
+      noteEditorSave,
       collapseHeaderButton,
       copyButton,
       minimizeButton,
@@ -124,6 +253,46 @@
     ui.cleanups.push(ytx.addResizeHandles(panel));
     ui.cleanups.push(ytx.makePanelDraggable(panel, header));
     ui.cleanups.push(setupAdaptiveHeader(ui));
+    ui.cleanups.push(ytx.search.attach(ui));
+    ui.cleanups.push(ytx.notes.attach(ui));
+    if (state.search.query) panel.classList.add("ytx-panel--search-open");
+
+    const sendSpeed = (value) => {
+      const rate = Number(value);
+      if (!Number.isFinite(rate) || rate <= 0) return;
+      const normalized = Math.round(rate * 100) / 100;
+      speedInput.value = String(normalized);
+      window.postMessage({ source: "YT_SPEED_CONTROL", rate: normalized }, "*");
+    };
+    const changeSpeed = (delta) => sendSpeed(Math.max(0.1, (Number(speedInput.value) || 1) + delta));
+    const onSpeedDown = () => changeSpeed(-0.25);
+    const onSpeedUp = () => changeSpeed(0.25);
+    const onSpeedReset = () => sendSpeed(1);
+    const onSpeedInputKey = (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        sendSpeed(speedInput.value);
+        speedInput.blur();
+      }
+    };
+    const onSpeedState = (event) => {
+      if (event.source !== window || event.data?.source !== "YT_SPEED_STATE") return;
+      speedInput.value = String(Math.round(Number(event.data.rate) * 100) / 100);
+      speedControl.classList.toggle("ytx-speed-control--temporary", Boolean(event.data.temporary));
+    };
+    speedDownButton.addEventListener("click", onSpeedDown);
+    speedUpButton.addEventListener("click", onSpeedUp);
+    speedResetButton.addEventListener("click", onSpeedReset);
+    speedInput.addEventListener("keydown", onSpeedInputKey);
+    window.addEventListener("message", onSpeedState);
+    ui.cleanups.push(() => speedDownButton.removeEventListener("click", onSpeedDown));
+    ui.cleanups.push(() => speedUpButton.removeEventListener("click", onSpeedUp));
+    ui.cleanups.push(() => speedResetButton.removeEventListener("click", onSpeedReset));
+    ui.cleanups.push(() => speedInput.removeEventListener("keydown", onSpeedInputKey));
+    ui.cleanups.push(() => window.removeEventListener("message", onSpeedState));
+    chrome.storage.local.get({ lastSpeed: 1 }, (stored) => {
+      if (state.ui === ui) speedInput.value = String(stored.lastSpeed || 1);
+    });
 
     let minimized = false;
     let previousHeight = panel.getBoundingClientRect().height;
@@ -175,6 +344,16 @@
     };
     content.addEventListener("copy", onCopySelection);
     ui.cleanups.push(() => content.removeEventListener("copy", onCopySelection));
+
+    let previousScrollTop = content.scrollTop;
+    const onContentScroll = () => {
+      const distanceFromBottom = content.scrollHeight - content.scrollTop - content.clientHeight;
+      if (content.scrollTop < previousScrollTop - 1) state.autoScrollEnabled = false;
+      else if (distanceFromBottom <= 4) state.autoScrollEnabled = true;
+      previousScrollTop = content.scrollTop;
+    };
+    content.addEventListener("scroll", onContentScroll, { passive: true });
+    ui.cleanups.push(() => content.removeEventListener("scroll", onContentScroll));
 
     const onGeometryChange = () => savePanelGeometry(panel, minimized ? previousHeight : undefined);
     panel.addEventListener("ytx:geometrychange", onGeometryChange);

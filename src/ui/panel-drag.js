@@ -4,7 +4,7 @@
 
   ytx.makePanelDraggable = (panel, header) => {
     const onMouseDown = (event) => {
-      if (event.button !== 0 || event.target.closest("button")) return;
+      if (event.button !== 0 || event.target.closest("button, input, select")) return;
       event.preventDefault();
 
       const rect = panel.getBoundingClientRect();

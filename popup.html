@@ -13,6 +13,29 @@
     .toggle { display:flex; align-items:center; gap:8px; font-weight:bold; }
     .toggle input { margin:0; }
     select { width:100%; margin-top:7px; padding:6px; box-sizing:border-box; }
+    .settings-toggle { width:100%; margin-top:12px; }
+    .shortcut-settings { margin-top:10px; padding-top:10px; border-top:1px solid #ddd; }
+    .shortcut-settings[hidden] { display:none; }
+    .shortcut-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+    .shortcut-grid label { display:block; }
+    .shortcut-grid input, .shortcut-grid select { width:100%; margin-top:4px; padding:6px; box-sizing:border-box; }
+    .shortcut-key { width:100%; margin:4px 0 8px; }
+    .shortcut-add { width:100%; margin-top:8px; }
+    .shortcut-list { display:grid; gap:6px; margin-top:10px; }
+    .shortcut-item { display:grid; grid-template-columns:1fr auto; gap:6px; align-items:center; padding:7px; border:1px solid #ddd; border-radius:6px; font-size:12px; }
+    .shortcut-item button { width:auto; margin:0; padding:3px 7px; }
+    .shortcut-empty { color:#666; font-size:12px; }
+    .notes-toggle { width:100%; margin-top:8px; }
+    .global-notes[hidden] { display:none; }
+    .global-notes { margin-top:10px; padding-top:10px; border-top:1px solid #ddd; }
+    .notes-export { width:100%; margin:0 0 8px; }
+    .global-notes-list { display:grid; gap:7px; max-height:260px; overflow-y:auto; }
+    .global-note { padding:7px; border:1px solid #ddd; border-radius:6px; font-size:11px; }
+    .global-note__title { display:block; overflow:hidden; color:#065fd4; font-weight:bold; text-overflow:ellipsis; white-space:nowrap; }
+    .global-note__meta { display:flex; justify-content:space-between; gap:5px; margin-top:4px; }
+    .global-note__meta button { width:auto; margin:0; padding:2px 6px; }
+    .global-note__text { margin-top:4px; color:#444; }
+    .global-note__note { margin-top:3px; color:#7c5b00; font-style:italic; }
   </style>
 </head>
 <body>
@@ -53,6 +76,29 @@
       <option value="original">Original de YouTube</option>
       <option value="sentences">Una frase por bloque</option>
     </select>
+  </div>
+  <button id="shortcut-settings-toggle" class="settings-toggle">⚙ Ajustes de atajos</button>
+  <div id="shortcut-settings" class="shortcut-settings" hidden>
+    <label>Tecla o combinación:</label>
+    <button id="shortcut-key" class="shortcut-key">Asignar tecla</button>
+    <div class="shortcut-grid">
+      <label>Velocidad
+        <input id="shortcut-speed" type="number" min="0.1" step="0.25" value="2" />
+      </label>
+      <label>Comportamiento
+        <select id="shortcut-behavior">
+          <option value="hold">Mientras se pulsa</option>
+          <option value="permanent">Permanente</option>
+        </select>
+      </label>
+    </div>
+    <button id="shortcut-add" class="shortcut-add">Añadir atajo</button>
+    <div id="shortcut-list" class="shortcut-list"></div>
+  </div>
+  <button id="global-notes-toggle" class="notes-toggle">★ Mis notas y favoritos</button>
+  <div id="global-notes" class="global-notes" hidden>
+    <button id="notes-export" class="notes-export">Descargar Markdown</button>
+    <div id="global-notes-list" class="global-notes-list"></div>
   </div>
   <script src="popup.js"></script>
 </body>

@@ -22,6 +22,8 @@
         "src/utils/time.js",
         "src/ui/panel-drag.js",
         "src/ui/panel-resize.js",
+        "src/transcript/transcript-search.js",
+        "src/notes/video-notes.js",
         "src/ui/transcript-panel.js",
         "src/transcript/transcript-sync.js",
         "src/transcript/transcript-renderer.js",
