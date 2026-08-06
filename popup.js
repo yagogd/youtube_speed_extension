@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const presets = document.querySelectorAll('.preset');
   const transcriptEnabled = document.getElementById('transcript-enabled');
   const transcriptMode = document.getElementById('transcript-mode');
+  const transcriptGrouping = document.getElementById('transcript-grouping');
 
   // Envía mensaje al tab activo
   async function sendSpeedToActiveTab(rate) {
@@ -84,18 +85,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (res.lastSpeed) speedInput.value = res.lastSpeed;
   });
 
-  chrome.storage.local.get({ transcriptEnabled: true, transcriptMode: 'full' }, (res) => {
+  chrome.storage.local.get({ transcriptEnabled: true, transcriptMode: 'full', transcriptGrouping: 'grouped' }, (res) => {
     transcriptEnabled.checked = res.transcriptEnabled;
     transcriptMode.value = res.transcriptMode;
+    transcriptGrouping.value = res.transcriptGrouping;
     transcriptMode.disabled = !res.transcriptEnabled;
+    transcriptGrouping.disabled = !res.transcriptEnabled;
   });
 
   transcriptEnabled.addEventListener('change', () => {
     transcriptMode.disabled = !transcriptEnabled.checked;
+    transcriptGrouping.disabled = !transcriptEnabled.checked;
     chrome.storage.local.set({ transcriptEnabled: transcriptEnabled.checked });
   });
 
   transcriptMode.addEventListener('change', () => {
     chrome.storage.local.set({ transcriptMode: transcriptMode.value });
+  });
+
+  transcriptGrouping.addEventListener('change', () => {
+    chrome.storage.local.set({ transcriptGrouping: transcriptGrouping.value });
   });
 });

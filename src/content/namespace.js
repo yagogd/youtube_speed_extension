@@ -1,0 +1,14 @@
+(() => {
+  "use strict";
+  const ytx = globalThis.__YTX || (globalThis.__YTX = {});
+  ytx.state = ytx.state || {
+    settings: { enabled: true, mode: "full", grouping: "grouped" },
+    ui: null,
+    transcript: null,
+    displayBlocks: [],
+    syncTimer: null,
+    renderedBlockCount: 0,
+    activeBlockIndex: -1,
+  };
+  ytx.isWatchPage = () => location.pathname === "/watch" && new URL(location.href).searchParams.has("v");
+})();

@@ -36,22 +36,6 @@
     return { languageCode, languageName, isAutomatic };
   }
 
-  function parseJson3(subtitles) {
-    return (subtitles.events || [])
-      .filter((event) => Array.isArray(event.segs))
-      .map((event) => ({
-        startMs: Number(event.tStartMs) || 0,
-        durationMs: Number(event.dDurationMs) || 0,
-        text: event.segs
-          .map((segment) => segment.utf8 || "")
-          .join("")
-          .replace(/\n/g, " ")
-          .replace(/\s+/g, " ")
-          .trim(),
-      }))
-      .filter((cue) => cue.text);
-  }
-
   function restoreSubtitleState() {
     if (!subtitlesEnabledByExtension) return;
     const button = document.querySelector(".ytp-subtitles-button");
@@ -85,7 +69,8 @@
       if (!text.trim()) throw new Error("YouTube devolvió una respuesta vacía");
       if (!text.trimStart().startsWith("{")) throw new Error("La respuesta no parece JSON");
 
-      const cues = parseJson3(JSON.parse(text));
+      if (!window.YTXTranscriptParser) throw new Error("El parser de transcripción no está disponible");
+      const { cues, blocks } = window.YTXTranscriptParser.parseJson3(JSON.parse(text));
       if (!cues.length) throw new Error("La transcripción extraída está vacía");
       if (videoIdAtDetection !== currentVideoId) return;
 
@@ -96,6 +81,7 @@
         type: "YT_TRANSCRIPT_READY",
         videoId: currentVideoId,
         cues,
+        blocks,
         ...getTrackInformation(url),
       };
       post(lastReadyPayload);
