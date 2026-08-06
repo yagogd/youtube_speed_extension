@@ -4,6 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const applyBtn = document.getElementById('apply');
   const resetBtn = document.getElementById('reset');
   const presets = document.querySelectorAll('.preset');
+  const transcriptEnabled = document.getElementById('transcript-enabled');
+  const transcriptMode = document.getElementById('transcript-mode');
 
   // Envía mensaje al tab activo
   async function sendSpeedToActiveTab(rate) {
@@ -80,5 +82,20 @@ document.addEventListener('DOMContentLoaded', () => {
   // cargar último speed guardado
   chrome.storage.local.get(['lastSpeed'], (res) => {
     if (res.lastSpeed) speedInput.value = res.lastSpeed;
+  });
+
+  chrome.storage.local.get({ transcriptEnabled: true, transcriptMode: 'full' }, (res) => {
+    transcriptEnabled.checked = res.transcriptEnabled;
+    transcriptMode.value = res.transcriptMode;
+    transcriptMode.disabled = !res.transcriptEnabled;
+  });
+
+  transcriptEnabled.addEventListener('change', () => {
+    transcriptMode.disabled = !transcriptEnabled.checked;
+    chrome.storage.local.set({ transcriptEnabled: transcriptEnabled.checked });
+  });
+
+  transcriptMode.addEventListener('change', () => {
+    chrome.storage.local.set({ transcriptMode: transcriptMode.value });
   });
 });

@@ -7,6 +7,8 @@
   let requestGeneration = 0;
   let subtitlesEnabledByExtension = false;
   let transcriptCompleted = false;
+  let enabled = false;
+  let lastReadyPayload = null;
 
   function post(payload) {
     window.postMessage({ source: "YT_TRANSCRIPT_EXTENSION", ...payload }, "*");
@@ -58,7 +60,7 @@
   }
 
   async function processTimedTextUrl(url) {
-    if (processedUrls.has(url) || transcriptCompleted) return;
+    if (!enabled || processedUrls.has(url) || transcriptCompleted) return;
 
     const requestedVideoId = new URL(url).searchParams.get("v");
     if (requestedVideoId && currentVideoId && requestedVideoId !== currentVideoId) return;
@@ -90,12 +92,13 @@
       transcriptCompleted = true;
       window.ultimaTranscripcion = cues.map((cue) => cue.text).join(" ");
 
-      post({
+      lastReadyPayload = {
         type: "YT_TRANSCRIPT_READY",
         videoId: currentVideoId,
         cues,
         ...getTrackInformation(url),
-      });
+      };
+      post(lastReadyPayload);
       restoreSubtitleState();
     } catch (error) {
       console.error("[Transcript] Error:", error);
@@ -114,9 +117,17 @@
   });
   observer.observe({ type: "resource", buffered: true });
 
-  function requestTranscript() {
+  function requestTranscript(force = false) {
+    if (!enabled) return;
     const nextVideoId = videoIdFromLocation();
-    if (nextVideoId && nextVideoId === currentVideoId && requestGeneration > 0) return;
+    if (!force && nextVideoId && nextVideoId === currentVideoId && requestGeneration > 0) return;
+
+    if (lastReadyPayload?.videoId === nextVideoId) {
+      currentVideoId = nextVideoId;
+      transcriptCompleted = true;
+      post(lastReadyPayload);
+      return;
+    }
 
     requestGeneration += 1;
     const generation = requestGeneration;
@@ -161,6 +172,16 @@
     }, 250);
   }
 
-  requestTranscript();
-  window.addEventListener("yt-navigate-finish", requestTranscript);
+  window.addEventListener("message", (event) => {
+    if (event.source !== window || event.data?.source !== "YT_TRANSCRIPT_CONTROL") return;
+    enabled = Boolean(event.data.enabled);
+    if (enabled) {
+      requestTranscript(true);
+    } else {
+      requestGeneration += 1;
+      restoreSubtitleState();
+    }
+  });
+
+  window.addEventListener("yt-navigate-finish", () => requestTranscript());
 })();

@@ -4,11 +4,15 @@
   <meta charset="utf-8" />
   <title>YouTube Speed</title>
   <style>
-    body { font-family: Arial, sans-serif; width:220px; padding:12px; }
+    body { font-family: Arial, sans-serif; width:240px; padding:12px; }
     input[type="number"] { width:100%; padding:6px; box-sizing:border-box; }
     button { width:48%; padding:6px; margin-top:8px; }
     .row { display:flex; justify-content:space-between; gap:4px; }
     label { font-size:13px; }
+    .section { margin-top:12px; padding-top:12px; border-top:1px solid #ddd; }
+    .toggle { display:flex; align-items:center; gap:8px; font-weight:bold; }
+    .toggle input { margin:0; }
+    select { width:100%; margin-top:7px; padding:6px; box-sizing:border-box; }
   </style>
 </head>
 <body>
@@ -32,6 +36,17 @@
       <button class="preset">3</button>
       <button class="preset">3.5</button>
     </div>
+  </div>
+  <div class="section">
+    <label class="toggle">
+      <input id="transcript-enabled" type="checkbox" checked />
+      Mostrar transcripción
+    </label>
+    <label for="transcript-mode" style="display:block; margin-top:9px;">Modo:</label>
+    <select id="transcript-mode">
+      <option value="full">Transcripción completa</option>
+      <option value="progressive">Según avanza el vídeo</option>
+    </select>
   </div>
   <script src="popup.js"></script>
 </body>
