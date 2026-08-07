@@ -1,5 +1,14 @@
 // popup.js
 document.addEventListener('DOMContentLoaded', () => {
+  const mainView = document.getElementById('main-view');
+  const settingsView = document.getElementById('settings-view');
+  const openSettingsButtons = [
+    document.getElementById('open-settings'),
+    document.getElementById('open-settings-secondary'),
+  ];
+  const closeSettingsButton = document.getElementById('close-settings');
+  const resetPanelLayout = document.getElementById('reset-panel-layout');
+  const settingsStatus = document.getElementById('settings-status');
   const speedInput = document.getElementById('speed');
   const applyBtn = document.getElementById('apply');
   const resetBtn = document.getElementById('reset');
@@ -18,9 +27,34 @@ document.addEventListener('DOMContentLoaded', () => {
   const globalNotes = document.getElementById('global-notes');
   const notesExport = document.getElementById('notes-export');
   const globalNotesList = document.getElementById('global-notes-list');
+  const pauseRewindEnabled = document.getElementById('pause-rewind-enabled');
+  const pauseRewindSeconds = document.getElementById('pause-rewind-seconds');
+  const pauseRewindMode = document.getElementById('pause-rewind-mode');
   let speedShortcuts = [];
   let capturedShortcut = null;
   let pendingModifier = null;
+  let editingShortcutId = null;
+
+  function showSettings(show) {
+    mainView.hidden = show;
+    settingsView.hidden = !show;
+    window.scrollTo(0, 0);
+  }
+
+  openSettingsButtons.forEach((button) => {
+    button.addEventListener('click', () => showSettings(true));
+  });
+  closeSettingsButton.addEventListener('click', () => showSettings(false));
+
+  resetPanelLayout.addEventListener('click', () => {
+    chrome.storage.local.remove([
+      'transcriptPanelGeometry',
+      'transcriptPanelMinimized',
+      'transcriptHeaderCollapsed',
+    ], () => {
+      settingsStatus.textContent = 'Diseño restablecido. Se aplicará al volver a abrir el panel.';
+    });
+  });
 
   // Envía mensaje al tab activo
   async function sendSpeedToActiveTab(rate) {
@@ -144,6 +178,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function finishShortcutCapture(shortcut) {
+    if (editingShortcutId) {
+      speedShortcuts = speedShortcuts.map((item) => item.id === editingShortcutId
+        ? { ...item, ...shortcut }
+        : item);
+      chrome.storage.local.set({ speedShortcuts });
+      editingShortcutId = null;
+      pendingModifier = null;
+      document.removeEventListener('keydown', captureKeyDown, true);
+      document.removeEventListener('keyup', captureKeyUp, true);
+      renderShortcuts();
+      return;
+    }
     capturedShortcut = shortcut;
     pendingModifier = null;
     shortcutKeyButton.textContent = shortcut.label;
@@ -184,10 +230,66 @@ document.addEventListener('DOMContentLoaded', () => {
     speedShortcuts.forEach((shortcut) => {
       const item = document.createElement('div');
       item.className = 'shortcut-item';
-      const description = document.createElement('span');
-      const behavior = shortcut.behavior === 'hold' ? 'mientras se pulsa' : 'permanente';
-      description.textContent = `${shortcut.label} → ${shortcut.speed}x · ${behavior}`;
+      const chips = document.createElement('div');
+      chips.className = 'shortcut-chips';
+
+      const key = document.createElement('button');
+      key.className = 'shortcut-chip shortcut-chip--key';
+      key.textContent = shortcut.label;
+      key.title = 'Cambiar tecla';
+      key.addEventListener('click', () => {
+        editingShortcutId = shortcut.id;
+        pendingModifier = null;
+        key.textContent = 'Pulsa una tecla…';
+        document.addEventListener('keydown', captureKeyDown, true);
+        document.addEventListener('keyup', captureKeyUp, true);
+      });
+
+      const speed = document.createElement('button');
+      speed.className = 'shortcut-chip shortcut-chip--speed';
+      speed.textContent = `${shortcut.speed}×`;
+      speed.title = 'Cambiar velocidad';
+      speed.addEventListener('click', () => {
+        const editor = document.createElement('input');
+        editor.className = 'shortcut-speed-editor';
+        editor.type = 'number';
+        editor.min = '0.1';
+        editor.step = '0.25';
+        editor.value = shortcut.speed;
+        speed.replaceWith(editor);
+        editor.focus();
+        editor.select();
+        let saved = false;
+        const saveSpeed = () => {
+          if (saved) return;
+          saved = true;
+          const value = Number(editor.value);
+          if (Number.isFinite(value) && value > 0) {
+            shortcut.speed = value;
+            chrome.storage.local.set({ speedShortcuts });
+          }
+          renderShortcuts();
+        };
+        editor.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') saveSpeed();
+          if (event.key === 'Escape') renderShortcuts();
+        });
+        editor.addEventListener('blur', saveSpeed);
+      });
+
+      const behavior = document.createElement('button');
+      behavior.className = 'shortcut-chip shortcut-chip--behavior';
+      behavior.textContent = shortcut.behavior === 'hold' ? 'Mientras pulsas' : 'Permanente';
+      behavior.title = 'Cambiar comportamiento';
+      behavior.addEventListener('click', () => {
+        shortcut.behavior = shortcut.behavior === 'hold' ? 'permanent' : 'hold';
+        chrome.storage.local.set({ speedShortcuts });
+        renderShortcuts();
+      });
+
+      chips.append(key, speed, behavior);
       const remove = document.createElement('button');
+      remove.className = 'shortcut-remove';
       remove.textContent = '×';
       remove.title = 'Eliminar atajo';
       remove.addEventListener('click', () => {
@@ -195,17 +297,18 @@ document.addEventListener('DOMContentLoaded', () => {
         chrome.storage.local.set({ speedShortcuts });
         renderShortcuts();
       });
-      item.append(description, remove);
+      item.append(chips, remove);
       shortcutList.appendChild(item);
     });
   }
 
   shortcutSettingsToggle.addEventListener('click', () => {
     shortcutSettings.hidden = !shortcutSettings.hidden;
-    shortcutSettingsToggle.textContent = shortcutSettings.hidden ? '⚙ Ajustes de atajos' : 'Ocultar ajustes';
+    shortcutSettingsToggle.textContent = shortcutSettings.hidden ? 'Añadir un atajo' : 'Cancelar';
   });
 
   shortcutKeyButton.addEventListener('click', () => {
+    editingShortcutId = null;
     capturedShortcut = null;
     pendingModifier = null;
     shortcutKeyButton.textContent = 'Pulsa una tecla…';
@@ -243,6 +346,35 @@ document.addEventListener('DOMContentLoaded', () => {
   chrome.storage.local.get({ speedShortcuts: [] }, (stored) => {
     speedShortcuts = Array.isArray(stored.speedShortcuts) ? stored.speedShortcuts : [];
     renderShortcuts();
+  });
+
+  function updatePauseRewindControls() {
+    pauseRewindSeconds.disabled = !pauseRewindEnabled.checked;
+    pauseRewindMode.disabled = !pauseRewindEnabled.checked;
+  }
+
+  chrome.storage.local.get({
+    pauseRewindEnabled: false,
+    pauseRewindSeconds: 2,
+    pauseRewindMode: 'fixed',
+  }, (stored) => {
+    pauseRewindEnabled.checked = stored.pauseRewindEnabled;
+    pauseRewindSeconds.value = stored.pauseRewindSeconds;
+    pauseRewindMode.value = stored.pauseRewindMode;
+    updatePauseRewindControls();
+  });
+
+  pauseRewindEnabled.addEventListener('change', () => {
+    updatePauseRewindControls();
+    chrome.storage.local.set({ pauseRewindEnabled: pauseRewindEnabled.checked });
+  });
+  pauseRewindSeconds.addEventListener('change', () => {
+    const seconds = Math.max(0.1, Number(pauseRewindSeconds.value) || 2);
+    pauseRewindSeconds.value = seconds;
+    chrome.storage.local.set({ pauseRewindSeconds: seconds });
+  });
+  pauseRewindMode.addEventListener('change', () => {
+    chrome.storage.local.set({ pauseRewindMode: pauseRewindMode.value });
   });
 
   function formatNoteTime(milliseconds) {

@@ -12,7 +12,11 @@
   });
 
   function normalizeText(value) {
-    return String(value || "").replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
+    return String(value || "")
+      .replace(/\[([^\]\r\n]*)\]/g, (match, content) => content.trim() === "_" ? match : " ")
+      .replace(/\n+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   function eventText(event) {

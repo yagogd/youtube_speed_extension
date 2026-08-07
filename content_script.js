@@ -7,6 +7,7 @@
   let shortcuts = [];
   let heldShortcut = null;
   let retryTimer = null;
+  const pauseRewind = { enabled: false, seconds: 2, mode: "fixed" };
 
   function validRate(value) {
     const rate = Number(value);
@@ -88,9 +89,18 @@
     applyRate(preferredRate, false);
   }
 
-  chrome.storage.local.get({ lastSpeed: 1, speedShortcuts: [] }, (stored) => {
+  chrome.storage.local.get({
+    lastSpeed: 1,
+    speedShortcuts: [],
+    pauseRewindEnabled: false,
+    pauseRewindSeconds: 2,
+    pauseRewindMode: "fixed",
+  }, (stored) => {
     preferredRate = validRate(stored.lastSpeed) || 1;
     shortcuts = Array.isArray(stored.speedShortcuts) ? stored.speedShortcuts : [];
+    pauseRewind.enabled = Boolean(stored.pauseRewindEnabled);
+    pauseRewind.seconds = validRate(stored.pauseRewindSeconds) || 2;
+    pauseRewind.mode = stored.pauseRewindMode === "scaled" ? "scaled" : "fixed";
     applyCurrentRateWithRetry();
   });
 
@@ -103,6 +113,9 @@
     if (changes.speedShortcuts) {
       shortcuts = Array.isArray(changes.speedShortcuts.newValue) ? changes.speedShortcuts.newValue : [];
     }
+    if (changes.pauseRewindEnabled) pauseRewind.enabled = Boolean(changes.pauseRewindEnabled.newValue);
+    if (changes.pauseRewindSeconds) pauseRewind.seconds = validRate(changes.pauseRewindSeconds.newValue) || 2;
+    if (changes.pauseRewindMode) pauseRewind.mode = changes.pauseRewindMode.newValue === "scaled" ? "scaled" : "fixed";
   });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -122,5 +135,11 @@
     if (event.target instanceof HTMLVideoElement) {
       applyRate(heldShortcut?.speed || preferredRate, Boolean(heldShortcut));
     }
+  }, true);
+  document.addEventListener("pause", (event) => {
+    const video = event.target;
+    if (!(video instanceof HTMLVideoElement) || !pauseRewind.enabled || video.ended) return;
+    const multiplier = pauseRewind.mode === "scaled" ? video.playbackRate : 1;
+    video.currentTime = Math.max(0, video.currentTime - pauseRewind.seconds * multiplier);
   }, true);
 })();

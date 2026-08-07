@@ -1,105 +1,74 @@
 <!doctype html>
-<html>
+<html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>YouTube Speed</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>YouTube Companion</title>
   <style>
-    body { font-family: Arial, sans-serif; width:240px; padding:12px; }
-    input[type="number"] { width:100%; padding:6px; box-sizing:border-box; }
-    button { width:48%; padding:6px; margin-top:8px; }
-    .row { display:flex; justify-content:space-between; gap:4px; }
-    label { font-size:13px; }
-    .section { margin-top:12px; padding-top:12px; border-top:1px solid #ddd; }
-    .toggle { display:flex; align-items:center; gap:8px; font-weight:bold; }
-    .toggle input { margin:0; }
-    select { width:100%; margin-top:7px; padding:6px; box-sizing:border-box; }
-    .settings-toggle { width:100%; margin-top:12px; }
-    .shortcut-settings { margin-top:10px; padding-top:10px; border-top:1px solid #ddd; }
-    .shortcut-settings[hidden] { display:none; }
-    .shortcut-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
-    .shortcut-grid label { display:block; }
-    .shortcut-grid input, .shortcut-grid select { width:100%; margin-top:4px; padding:6px; box-sizing:border-box; }
-    .shortcut-key { width:100%; margin:4px 0 8px; }
-    .shortcut-add { width:100%; margin-top:8px; }
-    .shortcut-list { display:grid; gap:6px; margin-top:10px; }
-    .shortcut-item { display:grid; grid-template-columns:1fr auto; gap:6px; align-items:center; padding:7px; border:1px solid #ddd; border-radius:6px; font-size:12px; }
-    .shortcut-item button { width:auto; margin:0; padding:3px 7px; }
-    .shortcut-empty { color:#666; font-size:12px; }
-    .notes-toggle { width:100%; margin-top:8px; }
-    .global-notes[hidden] { display:none; }
-    .global-notes { margin-top:10px; padding-top:10px; border-top:1px solid #ddd; }
-    .notes-export { width:100%; margin:0 0 8px; }
-    .global-notes-list { display:grid; gap:7px; max-height:260px; overflow-y:auto; }
-    .global-note { padding:7px; border:1px solid #ddd; border-radius:6px; font-size:11px; }
-    .global-note__title { display:block; overflow:hidden; color:#065fd4; font-weight:bold; text-overflow:ellipsis; white-space:nowrap; }
-    .global-note__meta { display:flex; justify-content:space-between; gap:5px; margin-top:4px; }
-    .global-note__meta button { width:auto; margin:0; padding:2px 6px; }
-    .global-note__text { margin-top:4px; color:#444; }
-    .global-note__note { margin-top:3px; color:#7c5b00; font-style:italic; }
+    :root { color-scheme: dark; --bg:#0d0f14; --surface:#171a22; --surface2:#20242e; --border:rgba(255,255,255,.09); --text:#f5f7fb; --muted:#9ca3b3; --accent:#ff4e45; --focus:#73a7ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; width:372px; min-height:330px; background:var(--bg); color:var(--text); font:13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    button,input,select { font:inherit; } button { color:inherit; cursor:pointer; }
+    button:focus-visible,input:focus-visible,select:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+    [hidden] { display:none!important; } .view { min-height:330px; }
+    .topbar { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:10px; min-height:58px; padding:12px 16px; border-bottom:1px solid var(--border); background:rgba(13,15,20,.94); backdrop-filter:blur(14px); }
+    .brand { display:flex; align-items:center; gap:10px; min-width:0; flex:1; } .brand__mark { display:grid; place-items:center; width:32px; height:32px; border-radius:10px; background:var(--accent); font-size:15px; }
+    .brand strong,.topbar h1 { display:block; margin:0; font-size:14px; } .brand small { color:var(--muted); }
+    .icon-button { display:grid; place-items:center; width:34px; height:34px; padding:0; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
+    .icon-button:hover { background:var(--surface2); } .content { display:grid; gap:12px; padding:14px; }
+    .card { padding:14px; border:1px solid var(--border); border-radius:14px; background:var(--surface); }
+    details.card { padding:0; overflow:hidden; } details.card > summary { display:flex; align-items:center; gap:12px; padding:14px; cursor:pointer; list-style:none; }
+    details.card > summary::-webkit-details-marker { display:none; } details.card > summary::after { content:"›"; margin-left:auto; color:var(--muted); font-size:22px; transition:transform .18s; }
+    details.card[open] > summary::after { transform:rotate(90deg); } details.card[open] > summary { border-bottom:1px solid var(--border); } .settings-body { padding:14px; }
+    .section-icon { display:grid; place-items:center; flex:0 0 auto; width:34px; height:34px; border-radius:10px; background:var(--surface2); font-size:16px; }
+    .section-title { min-width:0; } .section-title strong { display:block; font-size:13px; } .section-title span { display:block; overflow:hidden; margin-top:2px; color:var(--muted); font-size:11.5px; text-overflow:ellipsis; white-space:nowrap; }
+    .card__heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; } .card h2 { margin:0; font-size:14px; }
+    .card p,.section-copy { margin:3px 0 0; color:var(--muted); font-size:11.5px; }
+    .speed-row { display:grid; grid-template-columns:1fr auto auto; gap:7px; }
+    input[type="number"],select { width:100%; min-height:36px; padding:7px 10px; border:1px solid var(--border); border-radius:9px; background:var(--surface2); color:var(--text); }
+    .primary,.secondary,.danger,.wide-button,.preset { min-height:36px; padding:7px 11px; border:1px solid var(--border); border-radius:9px; background:var(--surface2); }
+    .primary { border-color:transparent; background:var(--accent); font-weight:650; } .primary:hover { filter:brightness(1.08); }
+    .secondary:hover,.wide-button:hover,.preset:hover { background:#292e3a; } .danger { color:#ffaaa5; background:transparent; }
+    .preset-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:5px; margin-top:9px; } .preset { min-height:31px; padding:5px 2px; color:var(--muted); font-size:11.5px; }
+    .wide-button { width:100%; } .quick-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .settings-intro { padding:4px 2px 2px; }
+    .field { display:block; margin-top:11px; color:var(--muted); font-size:11.5px; } .field select,.field input { margin-top:5px; color:var(--text); }
+    .toggle { display:flex; align-items:center; justify-content:space-between; gap:14px; } .toggle-copy { min-width:0; } .toggle-copy strong { display:block; font-size:13px; }
+    .toggle-copy span { display:block; margin-top:2px; color:var(--muted); font-size:11.5px; }
+    .switch { position:relative; flex:0 0 auto; width:38px; height:22px; } .switch input { position:absolute; opacity:0; }
+    .switch span { position:absolute; inset:0; border-radius:20px; background:#3a3f4c; transition:.18s; } .switch span::after { content:""; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:white; transition:.18s; }
+    .switch input:checked + span { background:var(--accent); } .switch input:checked + span::after { transform:translateX(16px); }
+    .two-columns { display:grid; grid-template-columns:1fr 1.35fr; gap:8px; } .shortcut-settings { margin-top:12px; } .shortcut-grid { display:grid; grid-template-columns:1fr 1.25fr; gap:8px; }
+    .shortcut-key,.shortcut-add { width:100%; margin-top:7px; } .shortcut-list { display:grid; gap:6px; margin-top:10px; }
+    .shortcut-item { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; padding:9px; border:1px solid var(--border); border-radius:10px; background:var(--surface2); font-size:11.5px; }
+    .shortcut-chips { display:flex; flex-wrap:wrap; gap:5px; min-width:0; } .shortcut-chip { width:auto!important; min-height:28px; height:auto!important; padding:4px 8px!important; border:1px solid var(--border)!important; border-radius:7px!important; background:rgba(255,255,255,.06)!important; }
+    .shortcut-chip--key { color:#a9c8ff; font-weight:650; } .shortcut-chip--speed { color:#ffb4af; } .shortcut-chip--behavior { color:#b8dec5; }
+    .shortcut-speed-editor { width:62px!important; min-height:28px!important; height:28px; padding:3px 6px!important; }
+    .shortcut-remove { width:28px; height:28px; padding:0; border:0; border-radius:7px; background:rgba(255,255,255,.06); color:#ffaaa5; } .shortcut-empty { color:var(--muted); font-size:11.5px; }
+    .global-notes { margin-top:10px; } .notes-export { width:100%; margin-bottom:9px; } .global-notes-list { display:grid; gap:7px; max-height:285px; overflow-y:auto; }
+    .global-note { padding:9px; border:1px solid var(--border); border-radius:9px; background:var(--surface2); font-size:11px; } .global-note__title { display:block; overflow:hidden; color:#8bb6ff; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }
+    .global-note__meta { display:flex; justify-content:space-between; gap:5px; margin-top:5px; } .global-note__meta a { color:var(--muted); } .global-note__meta button { width:auto; margin:0; padding:2px 6px; border:0; background:transparent; color:#ffaaa5; }
+    .global-note__text { margin-top:5px; color:#d8dbe3; } .global-note__note { margin-top:3px; color:#f1c96f; font-style:italic; } .status { min-height:17px; margin-top:8px; color:#8fc9a3; font-size:11.5px; }
   </style>
 </head>
 <body>
-  <label for="speed">Velocidad (ej. 1, 1.25, 2)</label>
-  <input id="speed" type="number" step="0.01" min="0.1" value="1" />
-  <div class="row">
-    <button id="apply">Aplicar</button>
-    <button id="reset">Reset 1x</button>
-  </div>
-  <div style="margin-top:8px;">
-    <label>Presets:</label>
-    <div class="row">
-      <button class="preset">0.5</button>
-      <button class="preset">1.5</button>
+  <main id="main-view" class="view">
+    <header class="topbar"><div class="brand"><span class="brand__mark">▶</span><span><strong>YouTube Companion</strong><small>Control rápido</small></span></div><button id="open-settings" class="icon-button" title="Abrir ajustes" aria-label="Abrir ajustes">⚙</button></header>
+    <div class="content">
+      <section class="card"><div class="card__heading"><div><h2>Velocidad</h2><p>Se conserva al cambiar de vídeo.</p></div></div><div class="speed-row"><input id="speed" aria-label="Velocidad" type="number" step="0.01" min="0.1" value="1" /><button id="apply" class="primary">Aplicar</button><button id="reset" class="secondary" title="Restablecer a 1x">1×</button></div><div class="preset-grid" aria-label="Velocidades predefinidas"><button class="preset">0.5</button><button class="preset">1.5</button><button class="preset">2</button><button class="preset">2.5</button><button class="preset">3</button><button class="preset">3.5</button></div></section>
+      <div class="quick-actions"><button id="global-notes-toggle" class="wide-button">★ Notas y favoritos</button><button id="open-settings-secondary" class="wide-button">⚙ Configuración</button></div>
+      <section id="global-notes" class="card global-notes" hidden><div class="card__heading"><div><h2>Tu colección</h2><p>Fragmentos y momentos guardados.</p></div></div><button id="notes-export" class="secondary notes-export">Descargar Markdown</button><div id="global-notes-list" class="global-notes-list"></div></section>
     </div>
-    <div class="row">
-      <button class="preset">2</button>
-      <button class="preset">2.5</button>
+  </main>
+  <main id="settings-view" class="view" hidden>
+    <header class="topbar"><button id="close-settings" class="icon-button" title="Volver" aria-label="Volver">←</button><h1>Ajustes</h1></header>
+    <div class="content">
+      <div class="settings-intro"><strong>Configura la extensión a tu manera</strong><p class="section-copy">Los cambios se guardan automáticamente y se aplican en tus próximos vídeos.</p></div>
+      <details class="card"><summary><span class="section-icon">▤</span><span class="section-title"><strong>Transcripción</strong><span>Visibilidad, avance y estructura del texto</span></span></summary><div class="settings-body"><div class="toggle"><div class="toggle-copy"><strong>Mostrar transcripción</strong><span>Siempre abre el panel al entrar en un vídeo.</span></div><label class="switch"><input id="transcript-enabled" type="checkbox" checked /><span></span></label></div><label class="field" for="transcript-mode">Cuándo mostrar el contenido<select id="transcript-mode"><option value="full">Todo el vídeo desde el inicio</option><option value="progressive">Solo hasta el momento actual</option></select></label><label class="field" for="transcript-grouping">División de párrafos<select id="transcript-grouping"><option value="grouped">Agrupado legible</option><option value="original">Bloques originales de YouTube</option><option value="sentences">Una frase por bloque</option></select></label></div></details>
+      <details class="card"><summary><span class="section-icon">↶</span><span class="section-title"><strong>Reproducción y pausas</strong><span>Retroceso automático y cálculo del tiempo</span></span></summary><div class="settings-body"><div class="toggle"><div class="toggle-copy"><strong>Retroceder al pausar</strong><span>Repite los últimos segundos para recuperar contexto.</span></div><label class="switch"><input id="pause-rewind-enabled" type="checkbox" /><span></span></label></div><div class="two-columns"><label class="field">Segundos<input id="pause-rewind-seconds" type="number" min="0.1" step="0.5" value="2" /></label><label class="field">Cálculo<select id="pause-rewind-mode"><option value="fixed">Tiempo fijo</option><option value="scaled">Según la velocidad</option></select></label></div></div></details>
+      <details class="card"><summary><span class="section-icon">⌨</span><span class="section-title"><strong>Atajos de velocidad</strong><span>Teclas, velocidad y comportamiento</span></span></summary><div class="settings-body"><button id="shortcut-settings-toggle" class="wide-button">Añadir un atajo</button><div id="shortcut-settings" class="shortcut-settings" hidden><button id="shortcut-key" class="secondary shortcut-key">Asignar tecla</button><div class="shortcut-grid"><label class="field">Velocidad<input id="shortcut-speed" type="number" min="0.1" step="0.25" value="2" /></label><label class="field">Comportamiento<select id="shortcut-behavior"><option value="hold">Mientras se pulsa</option><option value="permanent">Permanente</option></select></label></div><button id="shortcut-add" class="primary shortcut-add">Guardar atajo</button></div><div id="shortcut-list" class="shortcut-list"></div></div></details>
+      <details class="card"><summary><span class="section-icon">▱</span><span class="section-title"><strong>Panel de transcripción</strong><span>Posición, tamaño y estado de la cabecera</span></span></summary><div class="settings-body"><p class="section-copy">La disposición actual se recuerda automáticamente entre sesiones.</p><button id="reset-panel-layout" class="danger wide-button" style="margin-top:12px">Restablecer posición y tamaño</button><div id="settings-status" class="status" role="status"></div></div></details>
     </div>
-    <div class="row">
-      <button class="preset">3</button>
-      <button class="preset">3.5</button>
-    </div>
-  </div>
-  <div class="section">
-    <label class="toggle">
-      <input id="transcript-enabled" type="checkbox" checked />
-      Mostrar transcripción
-    </label>
-    <label for="transcript-mode" style="display:block; margin-top:9px;">Modo:</label>
-    <select id="transcript-mode">
-      <option value="full">Transcripción completa</option>
-      <option value="progressive">Según avanza el vídeo</option>
-    </select>
-    <label for="transcript-grouping" style="display:block; margin-top:9px;">Formato del texto:</label>
-    <select id="transcript-grouping">
-      <option value="grouped">Agrupado legible</option>
-      <option value="original">Original de YouTube</option>
-      <option value="sentences">Una frase por bloque</option>
-    </select>
-  </div>
-  <button id="shortcut-settings-toggle" class="settings-toggle">⚙ Ajustes de atajos</button>
-  <div id="shortcut-settings" class="shortcut-settings" hidden>
-    <label>Tecla o combinación:</label>
-    <button id="shortcut-key" class="shortcut-key">Asignar tecla</button>
-    <div class="shortcut-grid">
-      <label>Velocidad
-        <input id="shortcut-speed" type="number" min="0.1" step="0.25" value="2" />
-      </label>
-      <label>Comportamiento
-        <select id="shortcut-behavior">
-          <option value="hold">Mientras se pulsa</option>
-          <option value="permanent">Permanente</option>
-        </select>
-      </label>
-    </div>
-    <button id="shortcut-add" class="shortcut-add">Añadir atajo</button>
-    <div id="shortcut-list" class="shortcut-list"></div>
-  </div>
-  <button id="global-notes-toggle" class="notes-toggle">★ Mis notas y favoritos</button>
-  <div id="global-notes" class="global-notes" hidden>
-    <button id="notes-export" class="notes-export">Descargar Markdown</button>
-    <div id="global-notes-list" class="global-notes-list"></div>
-  </div>
+  </main>
   <script src="popup.js"></script>
 </body>
 </html>

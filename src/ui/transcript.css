@@ -270,8 +270,9 @@
 }
 
 .ytx-transcript-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-columns: 44px minmax(0, 1fr);
   align-items: start;
   gap: 10px;
   margin-bottom: 2px;
@@ -329,12 +330,42 @@
   user-select: text;
 }
 
-.ytx-row-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .15s ease; }
+.ytx-row-actions {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 7px;
+  opacity: 0;
+  background: rgba(30, 30, 34, 0.94);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  transition: opacity .15s ease;
+  z-index: 1;
+}
 .ytx-transcript-row:hover .ytx-row-actions,
 .ytx-row-actions:focus-within { opacity: 1; }
 .ytx-row-action { width: 23px; height: 23px; padding: 0; border: 0; border-radius: 5px; color: #a1a1aa; background: rgba(255,255,255,.07); cursor: pointer; font-size: 12px; }
 .ytx-row-action:hover { color: #fff; background: rgba(255,255,255,.16); }
 .ytx-transcript-row--saved .ytx-row-action--favorite { color: #facc15; }
+
+/* En paneles estrechos, el texto conserva casi todo el ancho disponible. */
+.ytx-panel--compact .ytx-panel__content { padding-right: 1px; }
+.ytx-panel--compact .ytx-transcript-row {
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 6px;
+  padding: 7px 4px;
+}
+.ytx-panel--compact .ytx-transcript-row__time {
+  font-size: 9.5px;
+  line-height: 1.8;
+}
+.ytx-panel--compact .ytx-transcript-row__text {
+  font-size: 13px;
+  line-height: 1.48;
+}
+.ytx-panel--compact .ytx-row-actions { top: 4px; right: 4px; }
 
 .ytx-panel__message { margin: 0; color: #d4d4d8; }
 

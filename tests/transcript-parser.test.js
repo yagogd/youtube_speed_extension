@@ -38,6 +38,31 @@ test("limpia saltos y espacios duplicados", () => {
   assert.equal(result.text, "Hola mundo");
 });
 
+test("elimina anotaciones sonoras entre corchetes", () => {
+  const [result] = normalizeJson3Events({
+    events: [{
+      tStartMs: 0,
+      dDurationMs: 1000,
+      segs: [{ utf8: "[Música] Hola [resopla] mundo [APLAUSOS]" }],
+    }],
+  });
+  assert.equal(result.text, "Hola mundo");
+});
+
+test("conserva el marcador de palabras censuradas", () => {
+  const [result] = normalizeJson3Events({
+    events: [{ tStartMs: 0, dDurationMs: 1000, segs: [{ utf8: "Esto es [_] importante" }] }],
+  });
+  assert.equal(result.text, "Esto es [_] importante");
+});
+
+test("descarta eventos que solo contienen una anotación sonora", () => {
+  const result = normalizeJson3Events({
+    events: [{ tStartMs: 0, dDurationMs: 1000, segs: [{ utf8: "[Música]" }] }],
+  });
+  assert.deepEqual(result, []);
+});
+
 test("agrupa cues cercanos", () => {
   const blocks = groupCuesIntoBlocks([
     cue(0, 1000, "Una explicación"),
