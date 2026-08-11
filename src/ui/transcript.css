@@ -423,3 +423,50 @@
 .ytx-resize-handle--right { top: 12px; right: -3px; bottom: 12px; width: 7px; cursor: ew-resize; }
 .ytx-resize-handle--top { top: -3px; right: 12px; left: 12px; height: 7px; cursor: ns-resize; }
 .ytx-resize-handle--bottom { right: 12px; bottom: -3px; left: 12px; height: 7px; cursor: ns-resize; }
+
+/* Accesos rápidos integrados en los controles nativos de YouTube. */
+.ytx-player-controls { width: auto !important; margin-right: 10px; }
+.ytx-player-control { position: relative; display: inline-flex !important; align-items: center; justify-content: center; padding: 0 !important; color: inherit; opacity: inherit; transition: opacity .1s ease; }
+.ytx-player-control:hover,.ytx-player-control:focus-visible { opacity: 1; }
+.ytx-player-control:active { transform: none; }
+.ytx-player-control--active { color: #fff; opacity: 1; }
+.ytx-player-icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.ytx-player-control__badge { position: absolute; right: 0; bottom: 0; display: block; min-width: 12px; height: 13px; padding: 0; color: #ffe04a; background: transparent; font-family: Roboto,Arial,sans-serif; font-size: 12px; font-weight: 800; line-height: 13px; text-align: center; text-shadow: 0 1px 3px #000,0 0 2px #000; }
+.ytx-player-control__badge[hidden] { display: none; }
+.ytx-player-speed-menu { position: absolute; right: 150px; bottom: 58px; z-index: 70; display: grid; width: 320px; gap: 11px; padding: 14px; border: 1px solid rgba(255,255,255,.16); border-radius: 13px; color: #fff; background: rgba(18,18,21,.94); box-shadow: 0 14px 36px rgba(0,0,0,.48); backdrop-filter: blur(12px); font-family: Inter,Roboto,Arial,sans-serif; }
+.ytx-player-speed-menu[hidden] { display: none; }
+.ytx-player-speed-menu__heading { padding-bottom: 9px; border-bottom: 1px solid rgba(255,255,255,.13); font-size: 12px; }
+.ytx-player-speed-menu__value { color: #b9d8ff; font-size: 17px; font-weight: 750; text-align: center; text-shadow: 0 0 10px rgba(93,181,255,.35); }
+.ytx-player-speed-menu__slider-row { display: grid; grid-template-columns: 32px minmax(0,1fr) 32px; align-items: center; gap: 8px; }
+.ytx-player-speed-menu button { height: 30px; min-width: 30px; padding: 0 7px; border: 0; border-radius: 7px; color: #fff; background: rgba(255,255,255,.1); cursor: pointer; font: inherit; }
+.ytx-player-speed-menu button:hover { background: rgba(255,255,255,.2); }
+.ytx-player-speed-menu input[type="number"] { width: 58px; height: 30px; padding: 0 5px; border: 1px solid rgba(255,255,255,.14); border-radius: 7px; outline: none; color: #fff; background: rgba(0,0,0,.28); font: inherit; font-size: 12px; text-align: center; appearance: textfield; }
+.ytx-player-speed-menu__range { width: 100%; accent-color: #fff; cursor: pointer; }
+.ytx-player-speed-menu__manual { display: flex; align-items: center; gap: 8px; color: #b4b4bd; font-size: 11px; }
+.ytx-player-speed-menu__manual span { flex: 1; }
+.ytx-player-speed-menu__presets { display: grid; grid-template-columns: repeat(5,1fr); gap: 6px; }
+.ytx-player-speed-menu__presets button { min-width: 0; padding: 0 3px; border-radius: 15px; font-size: 10px; }
+.ytx-player-speed-menu__presets .ytx-speed-preset--active { color: #111; background: #fff; font-weight: 700; }
+.ytx-player-speed-menu input:focus { border-color: #67b7ff; box-shadow: 0 0 0 1px #67b7ff; }
+.ytx-player-speed-error { color: #ff9b96; font-size: 10px; white-space: nowrap; }
+.ytx-player-speed-error[hidden] { display: none; }
+
+/* Marcas de notas y favoritos sobre la línea temporal. */
+.ytx-progress-markers { position: absolute; inset: 0; z-index: 100; pointer-events: none; }
+.ytx-progress-marker { position: absolute; top: 50%; bottom: auto; width: 6px !important; min-width: 0; height: 2px; padding: 0; transform: translate(-50%,-50%); border: 0; border-radius: 1px; pointer-events: auto; cursor: pointer; box-shadow: none; opacity: .95; }
+.ytx-progress-marker--favorite { background: #facc15; }
+.ytx-progress-marker--note { background: #5db5ff; }
+.ytx-progress-marker:hover,.ytx-progress-marker:focus-visible { height: 3px; opacity: 1; outline: 1px solid rgba(255,255,255,.85); outline-offset: 0; }
+
+/* Editor de notas disponible dentro del reproductor y en pantalla completa. */
+.ytx-player-note-editor { position: absolute; top: 50%; left: 50%; z-index: 75; display: grid; width: min(430px,calc(100% - 32px)); gap: 11px; padding: 16px; transform: translate(-50%,-50%); border: 1px solid rgba(255,255,255,.15); border-radius: 14px; color: var(--ytx-editor-text,#e4e4e7); background: var(--ytx-editor-background,rgba(30,30,34,.92)); box-shadow: 0 18px 48px rgba(0,0,0,.52); backdrop-filter: blur(16px); font-family: var(--ytx-editor-font,Inter,Roboto,Arial,sans-serif); font-size: var(--ytx-editor-font-size,13.5px); }
+.ytx-player-note-editor > strong { font-size: 14px; }
+.ytx-player-note-editor__times { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ytx-player-note-editor label { display: grid; gap: 4px; color: #a1a1aa; font-size: 10px; }
+.ytx-player-note-editor input,.ytx-player-note-editor textarea { box-sizing: border-box; width: 100%; padding: 7px 8px; border: 1px solid rgba(255,255,255,.13); border-radius: 7px; outline: none; color: var(--ytx-editor-text,#fff); background: rgba(0,0,0,.24); font: inherit; }
+.ytx-player-note-editor textarea { min-height: 95px; resize: vertical; }
+.ytx-player-note-editor input:focus,.ytx-player-note-editor textarea:focus { border-color: #67b7ff; box-shadow: 0 0 0 1px #67b7ff; }
+.ytx-player-note-editor small { color: #a1a1aa; font-size: 10px; }
+.ytx-player-note-editor__actions { display: flex; justify-content: flex-end; gap: 7px; }
+.ytx-player-note-editor__actions button { padding: 7px 10px; border: 0; border-radius: 7px; color: var(--ytx-editor-text,#fff); background: rgba(255,255,255,.1); cursor: pointer; font: inherit; }
+.ytx-player-note-editor__actions .ytx-player-note-editor__save { color: #fff; background: #3ea6ff; }

@@ -37,6 +37,8 @@
     state.savedNotes = all.filter((item) => item.videoId === videoId());
     renderDrawer();
     refreshMarkers();
+    ytx.playerControls?.refreshNoteMarkers();
+    ytx.playerControls?.updateNotesButton();
     return state.savedNotes;
   }
 

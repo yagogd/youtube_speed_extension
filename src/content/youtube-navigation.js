@@ -9,9 +9,9 @@
     state.transcriptTracks = [];
     state.displayBlocks = [];
     state.autoScrollEnabled = true;
+    if (state.settings.extensionEnabled && ytx.isWatchPage()) ytx.notes.loadCurrent();
     if (state.settings.extensionEnabled && state.settings.enabled && !state.dismissedVideoId && ytx.isWatchPage()) {
       ytx.panel.showMessage("Cargando transcripción…", "Buscando una pista de subtítulos…");
-      ytx.notes.loadCurrent();
     } else {
       ytx.panel.remove();
     }

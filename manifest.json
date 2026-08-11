@@ -25,6 +25,7 @@
         "src/transcript/transcript-search.js",
         "src/notes/video-notes.js",
         "src/ui/transcript-panel.js",
+        "src/ui/player-controls.js",
         "src/transcript/transcript-sync.js",
         "src/transcript/transcript-renderer.js",
         "src/content/message-bridge.js",

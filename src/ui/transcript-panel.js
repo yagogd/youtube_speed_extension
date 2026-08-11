@@ -369,6 +369,7 @@
       cleanups: [],
     };
     state.ui = ui;
+    ytx.playerControls?.updateTranscriptButton();
     applyAppearance();
     ui.cleanups.push(ytx.addResizeHandles(panel));
     ui.cleanups.push(ytx.makePanelDraggable(panel, header));
@@ -534,6 +535,7 @@
     state.ui.cleanups.forEach((cleanup) => cleanup());
     state.ui.panel.remove();
     state.ui = null;
+    ytx.playerControls?.updateTranscriptButton();
   }
 
   function ensurePanel() {

@@ -178,6 +178,7 @@
     const generation = requestGeneration;
     currentVideoId = nextVideoId;
     transcriptCompleted = false;
+    processedUrls.clear();
     subtitlesEnabledByExtension = false;
     post({ type: "YT_TRANSCRIPT_LOADING" });
 
@@ -200,7 +201,12 @@
       if (button) {
         clearInterval(buttonTimer);
         const alreadyEnabled = button.getAttribute("aria-pressed") === "true";
-        if (!alreadyEnabled) {
+        if (alreadyEnabled) {
+          button.click();
+          setTimeout(() => {
+            if (generation === requestGeneration && !transcriptCompleted) button.click();
+          }, 120);
+        } else {
           subtitlesEnabledByExtension = true;
           button.click();
         }

@@ -92,6 +92,8 @@
           fontSize: stored.transcriptPanelFontSize,
           opacity: stored.transcriptPanelOpacity,
         };
+        ytx.playerControls.start();
+        if (state.settings.extensionEnabled && ytx.isWatchPage()) ytx.notes.loadCurrent();
         if (state.settings.extensionEnabled && state.settings.enabled && ytx.isWatchPage()) ytx.panel.ensure();
         ytx.bridge.sendControl();
       });
@@ -104,6 +106,7 @@
   ytx.destroy = () => {
     chrome.storage.onChanged.removeListener(onStorageChanged);
     ytx.navigation.stop();
+    ytx.playerControls.stop();
     ytx.bridge.stop();
     ytx.panel.remove();
   };
