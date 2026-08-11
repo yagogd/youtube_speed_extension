@@ -135,6 +135,7 @@
       .forEach((item) => {
         const row = document.createElement("div");
         row.className = "ytx-note-item";
+        row.dataset.noteId = item.id;
         const jump = document.createElement("button");
         jump.className = "ytx-note-item__jump";
         jump.textContent = ytx.formatTime(item.startMs);

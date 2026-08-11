@@ -6,6 +6,7 @@
   let storageListener = null;
   let currentUi = null;
   let ensureScheduled = false;
+  let markerPreviewHideTimer = null;
 
   const ICONS = {
     transcript: '<path d="M6 3h9l3 3v15H6Z"/><path d="M15 3v4h4M9 11h6M9 15h6"/>',
@@ -73,30 +74,140 @@
     currentUi.notesButton.setAttribute("aria-label", currentUi.notesButton.title);
   }
 
+  function markerPreview(player) {
+    let preview = player.querySelector(":scope > .ytx-progress-marker-preview");
+    if (preview) return preview;
+    preview = document.createElement("div");
+    preview.className = "ytx-progress-marker-preview";
+    preview.id = `ytx-marker-preview-${Math.random().toString(36).slice(2)}`;
+    preview.setAttribute("role", "button");
+    preview.setAttribute("tabindex", "0");
+    preview.setAttribute("aria-label", "Abrir esta nota");
+    preview.hidden = true;
+    preview.addEventListener("pointerenter", () => clearTimeout(markerPreviewHideTimer));
+    preview.addEventListener("pointerleave", () => scheduleMarkerPreviewHide(preview));
+    preview.addEventListener("click", () => openSavedNote(preview.dataset.noteId));
+    preview.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openSavedNote(preview.dataset.noteId);
+      }
+    });
+    player.appendChild(preview);
+    return preview;
+  }
+
+  function scheduleMarkerPreviewHide(preview) {
+    clearTimeout(markerPreviewHideTimer);
+    markerPreviewHideTimer = setTimeout(() => { preview.hidden = true; }, 700);
+  }
+
+  function showMarkerPreview(marker, item, time, player, preview) {
+    const type = item.type === "favorite" ? "Favorito" : "Nota";
+    const content = item.type === "favorite"
+      ? (item.text || item.note || "Momento guardado como favorito")
+      : (item.note || item.text || "Nota sin texto");
+    const heading = document.createElement("div");
+    heading.className = "ytx-progress-marker-preview__heading";
+    heading.textContent = `${type} · ${time}`;
+    const body = document.createElement("div");
+    body.className = "ytx-progress-marker-preview__body";
+    body.textContent = content;
+    preview.replaceChildren(heading, body);
+    preview.dataset.noteId = item.id;
+    preview.classList.toggle("ytx-progress-marker-preview--favorite", item.type === "favorite");
+    preview.hidden = false;
+
+    const playerRect = player.getBoundingClientRect();
+    const markerRect = marker.getBoundingClientRect();
+    const previewWidth = preview.offsetWidth;
+    const markerCenter = markerRect.left - playerRect.left + markerRect.width / 2;
+    preview.style.left = `${Math.max(8, Math.min(playerRect.width - previewWidth - 8, markerCenter - previewWidth / 2))}px`;
+    preview.style.bottom = `${Math.max(48, playerRect.bottom - markerRect.top + 9)}px`;
+  }
+
+  function handleProgressPointerMove(event) {
+    const player = currentUi?.player;
+    const progressList = player?.querySelector(".ytp-progress-list");
+    const preview = player?.querySelector(":scope > .ytx-progress-marker-preview");
+    if (!player || !progressList || !preview) return;
+    const progressRect = progressList.getBoundingClientRect();
+    const previewRect = preview.hidden ? null : preview.getBoundingClientRect();
+    const insidePreviewPath = previewRect &&
+      event.clientX >= previewRect.left - 12 &&
+      event.clientX <= previewRect.right + 12 &&
+      event.clientY >= previewRect.top - 8 &&
+      event.clientY <= progressRect.top + progressRect.height / 2 + 18;
+    if (preview.contains(event.target) || insidePreviewPath) {
+      clearTimeout(markerPreviewHideTimer);
+      return;
+    }
+    if (Math.abs(event.clientY - (progressRect.top + progressRect.height / 2)) > 16) {
+      preview.hidden = true;
+      return;
+    }
+
+    let closest = null;
+    let closestDistance = Infinity;
+    progressList.querySelectorAll(".ytx-progress-marker").forEach((marker) => {
+      const rect = marker.getBoundingClientRect();
+      const distance = Math.abs(event.clientX - (rect.left + rect.width / 2));
+      if (distance < closestDistance) {
+        closest = marker;
+        closestDistance = distance;
+      }
+    });
+    if (!closest || closestDistance > 10 || !closest._ytxSavedItem) {
+      preview.hidden = true;
+      return;
+    }
+    clearTimeout(markerPreviewHideTimer);
+    const item = closest._ytxSavedItem;
+    showMarkerPreview(closest, item, ytx.formatTime(item.startMs), player, preview);
+  }
+
   function refreshNoteMarkers() {
     const progressList = document.querySelector(".html5-video-player .ytp-progress-list");
     const video = document.querySelector("video");
     if (!progressList || !video || !Number.isFinite(video.duration) || video.duration <= 0) return;
+    const player = progressList.closest(".html5-video-player");
+    if (!player) return;
+    const preview = markerPreview(player);
+    preview.hidden = true;
     let layer = progressList.querySelector(":scope > .ytx-progress-markers");
     if (!layer) {
       layer = document.createElement("div");
       layer.className = "ytx-progress-markers";
       progressList.appendChild(layer);
     }
+    const progressHeight = Math.max(2, Math.round(progressList.getBoundingClientRect().height));
+    layer.style.setProperty("--ytx-marker-bar-height", `${progressHeight}px`);
     layer.replaceChildren();
     (state.savedNotes || []).forEach((item) => {
       const startSeconds = Math.max(0, Number(item.startMs) / 1000 || 0);
       const endSeconds = Math.max(startSeconds, Number(item.endMs) / 1000 || startSeconds);
       const marker = document.createElement("button");
       marker.type = "button";
+      marker._ytxSavedItem = item;
       marker.className = `ytx-progress-marker ytx-progress-marker--${item.type === "favorite" ? "favorite" : "note"}`;
       marker.style.left = `${Math.min(100, startSeconds / video.duration * 100)}%`;
-      marker.style.width = "6px";
       const time = ytx.formatTime(item.startMs);
-      marker.title = `${time} · ${item.note || item.text || "Momento guardado"}`;
       marker.setAttribute("aria-label", `Ir a la nota del minuto ${time}`);
+      marker.setAttribute("aria-describedby", preview.id);
+      const showPreview = () => showMarkerPreview(marker, item, time, player, preview);
+      const hidePreview = () => { preview.hidden = true; };
+      marker.addEventListener("pointerenter", showPreview);
+      marker.addEventListener("focus", showPreview);
+      marker.addEventListener("blur", hidePreview);
+      marker.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        event.stopPropagation();
+        openSavedNote(item.id);
+      });
       marker.addEventListener("click", (event) => {
         event.stopPropagation();
+        hidePreview();
         video.currentTime = startSeconds;
       });
       layer.appendChild(marker);
@@ -131,6 +242,22 @@
       if (notesToggle && !state.ui.panel.classList.contains("ytx-panel--notes-open")) notesToggle.click();
       updateTranscriptButton();
     }, 80);
+  }
+
+  function openSavedNote(noteId) {
+    if (!noteId) return;
+    clearTimeout(markerPreviewHideTimer);
+    const preview = currentUi?.player?.querySelector(":scope > .ytx-progress-marker-preview");
+    if (preview) preview.hidden = true;
+    openNotes();
+    setTimeout(() => {
+      const row = Array.from(state.ui?.notesList?.querySelectorAll(".ytx-note-item") || [])
+        .find((candidate) => candidate.dataset.noteId === noteId);
+      if (!row) return;
+      row.scrollIntoView({ block: "center", behavior: "smooth" });
+      row.classList.add("ytx-note-item--focused");
+      setTimeout(() => row.classList.remove("ytx-note-item--focused"), 2200);
+    }, 160);
   }
 
   function parseTime(value, fallback) {
@@ -330,8 +457,29 @@
 
     const video = player.querySelector("video");
     const onDurationChange = () => refreshNoteMarkers();
+    const onDocumentPointerMove = (event) => handleProgressPointerMove(event);
+    const onDocumentClick = (event) => {
+      const preview = player.querySelector(":scope > .ytx-progress-marker-preview");
+      if (!preview || preview.hidden) return;
+      const rect = preview.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      openSavedNote(preview.dataset.noteId);
+    };
+    const onDocumentKeyDown = (event) => {
+      const preview = player.querySelector(":scope > .ytx-progress-marker-preview");
+      if (!preview || preview.hidden || (event.key !== "Enter" && event.key !== " ")) return;
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "")) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      openSavedNote(preview.dataset.noteId);
+    };
     video?.addEventListener("durationchange", onDurationChange);
-    currentUi = { player, group, transcriptButton, speedButton, notesButton, notesCount, addNoteButton, speedMenu, speedInput, speedSlider, speedValue, speedPresets, speedError, video, onDurationChange };
+    document.addEventListener("pointermove", onDocumentPointerMove, true);
+    document.addEventListener("click", onDocumentClick, true);
+    document.addEventListener("keydown", onDocumentKeyDown, true);
+    currentUi = { player, group, transcriptButton, speedButton, notesButton, notesCount, addNoteButton, speedMenu, speedInput, speedSlider, speedValue, speedPresets, speedError, video, onDurationChange, onDocumentPointerMove, onDocumentClick, onDocumentKeyDown };
     transcriptButton.addEventListener("click", toggleTranscript);
     notesButton.addEventListener("click", openNotes);
     addNoteButton.addEventListener("click", openPlayerNoteEditor);
@@ -385,11 +533,16 @@
   }
 
   function remove() {
+    clearTimeout(markerPreviewHideTimer);
     closePlayerNoteEditor();
     currentUi?.video?.removeEventListener("durationchange", currentUi.onDurationChange);
+    document.removeEventListener("pointermove", currentUi?.onDocumentPointerMove, true);
+    document.removeEventListener("click", currentUi?.onDocumentClick, true);
+    document.removeEventListener("keydown", currentUi?.onDocumentKeyDown, true);
     currentUi?.group?.remove();
     currentUi?.speedMenu?.remove();
     document.querySelectorAll(".ytx-progress-markers").forEach((layer) => layer.remove());
+    document.querySelectorAll(".ytx-progress-marker-preview").forEach((preview) => preview.remove());
     currentUi = null;
   }
 

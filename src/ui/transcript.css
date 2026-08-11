@@ -215,6 +215,7 @@
 .ytx-notes__list { display: grid; gap: 5px; }
 .ytx-notes__empty { margin: 0; color: #a1a1aa; font-size: 11px; }
 .ytx-note-item { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 7px; align-items: start; padding: 6px; border-radius: 7px; background: rgba(255,255,255,.05); }
+.ytx-note-item--focused { background: rgba(93,181,255,.18); box-shadow: inset 3px 0 #5db5ff,0 0 0 1px rgba(93,181,255,.32); }
 .ytx-note-item__jump,
 .ytx-note-item__delete,
 .ytx-note-item__edit { padding: 0; border: 0; color: #5db5ff; background: transparent; cursor: pointer; font: inherit; font-size: 11px; }
@@ -453,10 +454,18 @@
 
 /* Marcas de notas y favoritos sobre la línea temporal. */
 .ytx-progress-markers { position: absolute; inset: 0; z-index: 100; pointer-events: none; }
-.ytx-progress-marker { position: absolute; top: 50%; bottom: auto; width: 6px !important; min-width: 0; height: 2px; padding: 0; transform: translate(-50%,-50%); border: 0; border-radius: 1px; pointer-events: auto; cursor: pointer; box-shadow: none; opacity: .95; }
-.ytx-progress-marker--favorite { background: #facc15; }
-.ytx-progress-marker--note { background: #5db5ff; }
-.ytx-progress-marker:hover,.ytx-progress-marker:focus-visible { height: 3px; opacity: 1; outline: 1px solid rgba(255,255,255,.85); outline-offset: 0; }
+.ytx-progress-marker { position: absolute; top: 50%; width: 14px !important; min-width: 0; height: 22px; padding: 0; transform: translate(-50%,-50%); border: 0; outline: 0; background: transparent; pointer-events: auto; cursor: pointer; }
+.ytx-progress-marker::after { content: ""; position: absolute; top: 50%; left: 3px; right: 3px; height: 100%; max-height: var(--ytx-marker-bar-height,4px); transform: translateY(-50%); border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.78),0 0 2px rgba(0,0,0,.8); }
+.ytx-progress-marker--favorite::after { background: #ffd600; }
+.ytx-progress-marker--note::after { background: #36a9ff; }
+.ytx-progress-marker:hover::after,.ytx-progress-marker:focus-visible::after { filter: brightness(1.28) saturate(1.2); box-shadow: inset 0 0 0 1px #fff,0 0 3px rgba(255,255,255,.9); }
+.ytx-progress-marker-preview { position: absolute; z-index: 2147483647; box-sizing: border-box; width: max-content; max-width: min(320px,calc(100% - 16px)); padding: 9px 11px; border: 1px solid rgba(93,181,255,.72); border-radius: 8px; outline: 0; color: #f5f5f5; background: rgba(22,22,25,.96); box-shadow: 0 6px 20px rgba(0,0,0,.48); font-family: Roboto,Arial,sans-serif; pointer-events: auto; visibility: visible; opacity: 1; cursor: pointer; }
+.ytx-progress-marker-preview:hover,.ytx-progress-marker-preview:focus-visible { border-color: #8fd1ff; box-shadow: 0 7px 22px rgba(0,0,0,.55),0 0 0 2px rgba(93,181,255,.28); }
+.ytx-progress-marker-preview[hidden] { display: none; }
+.ytx-progress-marker-preview--favorite { border-color: rgba(250,204,21,.78); }
+.ytx-progress-marker-preview__heading { margin-bottom: 4px; color: #72c4ff; font-size: 11px; font-weight: 700; }
+.ytx-progress-marker-preview--favorite .ytx-progress-marker-preview__heading { color: #facc15; }
+.ytx-progress-marker-preview__body { display: -webkit-box; overflow: hidden; color: #fff; font-size: 12px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
 
 /* Editor de notas disponible dentro del reproductor y en pantalla completa. */
 .ytx-player-note-editor { position: absolute; top: 50%; left: 50%; z-index: 75; display: grid; width: min(430px,calc(100% - 32px)); gap: 11px; padding: 16px; transform: translate(-50%,-50%); border: 1px solid rgba(255,255,255,.15); border-radius: 14px; color: var(--ytx-editor-text,#e4e4e7); background: var(--ytx-editor-background,rgba(30,30,34,.92)); box-shadow: 0 18px 48px rgba(0,0,0,.52); backdrop-filter: blur(16px); font-family: var(--ytx-editor-font,Inter,Roboto,Arial,sans-serif); font-size: var(--ytx-editor-font-size,13.5px); }
