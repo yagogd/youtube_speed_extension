@@ -118,6 +118,7 @@
   }
 
   function onKeyUp(event) {
+    if (isEditableTarget(event.target)) return;
     if (extensionEnabled && pauseShortcutsEnabled &&
         pauseShortcuts.some((candidate) => candidate.enabled !== false && matchesShortcut(event, candidate))) {
       event.preventDefault();

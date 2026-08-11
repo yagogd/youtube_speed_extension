@@ -134,7 +134,7 @@
       .sort((a, b) => a.startMs - b.startMs)
       .forEach((item) => {
         const row = document.createElement("div");
-        row.className = "ytx-note-item";
+        row.className = `ytx-note-item ytx-note-item--${item.type === "favorite" ? "favorite" : "note"}`;
         row.dataset.noteId = item.id;
         const jump = document.createElement("button");
         jump.className = "ytx-note-item__jump";
@@ -223,10 +223,16 @@
 
   function attach(ui) {
     const onBookmark = () => openEditor(currentMomentDraft());
-    const onToggleNotes = () => {
-      ui.panel.classList.toggle("ytx-panel--notes-open");
-      ui.notesToggle.setAttribute("aria-expanded", String(ui.panel.classList.contains("ytx-panel--notes-open")));
+    const setNotesOpen = (open) => {
+      ui.panel.classList.toggle("ytx-panel--notes-open", open);
+      ui.notesToggle.setAttribute("aria-expanded", String(open));
+      ytx.panel.labelButton(ui.notesToggle, open ? "Cerrar notas y favoritos de este vídeo" : "Mostrar notas y favoritos de este vídeo");
       renderDrawer();
+    };
+    const onToggleNotes = () => setNotesOpen(!ui.panel.classList.contains("ytx-panel--notes-open"));
+    const onCloseNotes = () => {
+      setNotesOpen(false);
+      ui.notesToggle.focus();
     };
     const onCancel = () => {
       editorDraft = null;
@@ -251,6 +257,7 @@
     };
     ui.bookmarkButton.addEventListener("click", onBookmark);
     ui.notesToggle.addEventListener("click", onToggleNotes);
+    ui.notesClose.addEventListener("click", onCloseNotes);
     ui.noteEditorCancel.addEventListener("click", onCancel);
     ui.noteEditorSave.addEventListener("click", onSave);
     ui.panel.addEventListener("keydown", onEditorKeyDown);
@@ -259,6 +266,7 @@
     return () => {
       ui.bookmarkButton.removeEventListener("click", onBookmark);
       ui.notesToggle.removeEventListener("click", onToggleNotes);
+      ui.notesClose.removeEventListener("click", onCloseNotes);
       ui.noteEditorCancel.removeEventListener("click", onCancel);
       ui.noteEditorSave.removeEventListener("click", onSave);
       ui.panel.removeEventListener("keydown", onEditorKeyDown);

@@ -50,7 +50,7 @@
     if (currentUi) {
       currentUi.speedInput.value = String(value);
       currentUi.speedSlider.value = String(value);
-      currentUi.speedValue.textContent = `${value.toFixed(2)}×`;
+      currentUi.speedValue.value = String(value);
       currentUi.speedPresets?.forEach((preset) => preset.classList.toggle("ytx-speed-preset--active", Number(preset.dataset.rate) === value));
     }
   }
@@ -151,7 +151,9 @@
     let closestDistance = Infinity;
     progressList.querySelectorAll(".ytx-progress-marker").forEach((marker) => {
       const rect = marker.getBoundingClientRect();
-      const distance = Math.abs(event.clientX - (rect.left + rect.width / 2));
+      const distance = event.clientX < rect.left
+        ? rect.left - event.clientX
+        : event.clientX > rect.right ? event.clientX - rect.right : 0;
       if (distance < closestDistance) {
         closest = marker;
         closestDistance = distance;
@@ -191,6 +193,12 @@
       marker._ytxSavedItem = item;
       marker.className = `ytx-progress-marker ytx-progress-marker--${item.type === "favorite" ? "favorite" : "note"}`;
       marker.style.left = `${Math.min(100, startSeconds / video.duration * 100)}%`;
+      const durationPercent = Math.max(0, (endSeconds - startSeconds) / video.duration * 100);
+      if (durationPercent > 0) {
+        marker.classList.add("ytx-progress-marker--range");
+        const availablePercent = Math.max(0, 100 - startSeconds / video.duration * 100);
+        marker.style.setProperty("width", `max(8px,${Math.min(availablePercent, durationPercent)}%)`, "important");
+      }
       const time = ytx.formatTime(item.startMs);
       marker.setAttribute("aria-label", `Ir a la nota del minuto ${time}`);
       marker.setAttribute("aria-describedby", preview.id);
@@ -229,7 +237,7 @@
     });
   }
 
-  function openNotes() {
+  function openNotes(forceOpen = false) {
     state.dismissedVideoId = null;
     if (!state.settings.enabled) {
       chrome.storage.local.set({ transcriptEnabled: true });
@@ -239,7 +247,8 @@
     ytx.bridge.sendControl();
     setTimeout(() => {
       const notesToggle = state.ui?.notesToggle || ui?.notesToggle;
-      if (notesToggle && !state.ui.panel.classList.contains("ytx-panel--notes-open")) notesToggle.click();
+      const isOpen = Boolean(state.ui?.panel?.classList.contains("ytx-panel--notes-open"));
+      if (notesToggle && (forceOpen ? !isOpen : true)) notesToggle.click();
       updateTranscriptButton();
     }, 80);
   }
@@ -249,7 +258,7 @@
     clearTimeout(markerPreviewHideTimer);
     const preview = currentUi?.player?.querySelector(":scope > .ytx-progress-marker-preview");
     if (preview) preview.hidden = true;
-    openNotes();
+    openNotes(true);
     setTimeout(() => {
       const row = Array.from(state.ui?.notesList?.querySelectorAll(".ytx-note-item") || [])
         .find((candidate) => candidate.dataset.noteId === noteId);
@@ -273,23 +282,61 @@
 
   function applyEditorAppearance(editor) {
     const appearance = state.appearance || {};
-    const hex = /^#[0-9a-f]{6}$/i.test(appearance.background) ? appearance.background : "#1e1e22";
-    const red = parseInt(hex.slice(1, 3), 16);
-    const green = parseInt(hex.slice(3, 5), 16);
-    const blue = parseInt(hex.slice(5, 7), 16);
-    const opacity = Math.min(1, Math.max(.55, Number(appearance.opacity) || .9));
-    editor.style.setProperty("--ytx-editor-background", `rgba(${red},${green},${blue},${opacity})`);
+    const opacity = .54;
+    editor.style.setProperty("--ytx-editor-background", `rgba(8,8,10,${opacity})`);
     editor.style.setProperty("--ytx-editor-text", appearance.text || "#e4e4e7");
     editor.style.setProperty("--ytx-editor-font", appearance.font || "Inter, Roboto, Arial, sans-serif");
     editor.style.setProperty("--ytx-editor-font-size", `${Math.min(22, Math.max(10, Number(appearance.fontSize) || 13.5))}px`);
   }
 
+  function makePlayerNoteEditorDraggable(editor, handle, player) {
+    let removeActiveDrag = null;
+    const onPointerDown = (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      const editorRect = editor.getBoundingClientRect();
+      const playerRect = player.getBoundingClientRect();
+      const offsetX = event.clientX - editorRect.left;
+      const offsetY = event.clientY - editorRect.top;
+      editor.style.transform = "none";
+      editor.style.left = `${editorRect.left - playerRect.left}px`;
+      editor.style.top = `${editorRect.top - playerRect.top}px`;
+      handle.classList.add("ytx-player-note-editor__drag-handle--dragging");
+
+      const onPointerMove = (moveEvent) => {
+        const bounds = player.getBoundingClientRect();
+        const maxLeft = Math.max(8, bounds.width - editor.offsetWidth - 8);
+        const maxTop = Math.max(8, bounds.height - editor.offsetHeight - 8);
+        editor.style.left = `${Math.max(8, Math.min(maxLeft, moveEvent.clientX - bounds.left - offsetX))}px`;
+        editor.style.top = `${Math.max(8, Math.min(maxTop, moveEvent.clientY - bounds.top - offsetY))}px`;
+      };
+      const onPointerUp = () => {
+        document.removeEventListener("pointermove", onPointerMove, true);
+        document.removeEventListener("pointerup", onPointerUp, true);
+        handle.classList.remove("ytx-player-note-editor__drag-handle--dragging");
+        removeActiveDrag = null;
+      };
+      document.addEventListener("pointermove", onPointerMove, true);
+      document.addEventListener("pointerup", onPointerUp, true);
+      removeActiveDrag = onPointerUp;
+    };
+    handle.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      removeActiveDrag?.();
+      handle.removeEventListener("pointerdown", onPointerDown);
+    };
+  }
+
   function closePlayerNoteEditor() {
     if (!currentUi?.noteEditor) return;
     clearInterval(currentUi.noteEditorTimer);
+    currentUi.noteEditorKeyboardCleanup?.();
+    currentUi.noteEditorDragCleanup?.();
     currentUi.noteEditor.remove();
     currentUi.noteEditor = null;
     currentUi.noteEditorTimer = null;
+    currentUi.noteEditorKeyboardCleanup = null;
+    currentUi.noteEditorDragCleanup = null;
     currentUi.addNoteButton?.focus();
   }
 
@@ -305,6 +352,7 @@
     editor.setAttribute("aria-label", "Crear nota del vídeo");
     applyEditorAppearance(editor);
     const heading = document.createElement("strong");
+    heading.className = "ytx-player-note-editor__drag-handle";
     heading.textContent = "Nueva nota";
     const times = document.createElement("div");
     times.className = "ytx-player-note-editor__times";
@@ -340,6 +388,7 @@
     editor.append(heading, times, textarea, hint, actions);
     currentUi.player.appendChild(editor);
     currentUi.noteEditor = editor;
+    currentUi.noteEditorDragCleanup = makePlayerNoteEditorDraggable(editor, heading, currentUi.player);
     currentUi.noteEditorTimer = setInterval(() => {
       if (!manualEnd && currentUi?.noteEditor === editor) endInput.value = formatSeconds(video.currentTime);
     }, 250);
@@ -363,9 +412,10 @@
       closePlayerNoteEditor();
       refreshNoteMarkers();
     };
-    cancel.addEventListener("click", closePlayerNoteEditor);
-    save.addEventListener("click", saveNote);
-    editor.addEventListener("keydown", (event) => {
+    const blockPlayerShortcuts = (event) => {
+      if (!editor.contains(event.target)) return;
+      event.stopImmediatePropagation();
+      if (event.type !== "keydown") return;
       if (event.key === "Escape") {
         event.preventDefault();
         closePlayerNoteEditor();
@@ -373,7 +423,13 @@
         event.preventDefault();
         saveNote();
       }
-    });
+    };
+    ["keydown", "keyup", "keypress"].forEach((type) => window.addEventListener(type, blockPlayerShortcuts, true));
+    currentUi.noteEditorKeyboardCleanup = () => {
+      ["keydown", "keyup", "keypress"].forEach((type) => window.removeEventListener(type, blockPlayerShortcuts, true));
+    };
+    cancel.addEventListener("click", closePlayerNoteEditor);
+    save.addEventListener("click", saveNote);
     textarea.focus();
   }
 
@@ -399,9 +455,14 @@
     const speedHeading = document.createElement("strong");
     speedHeading.className = "ytx-player-speed-menu__heading";
     speedHeading.textContent = "Velocidad de reproducción";
-    const speedValue = document.createElement("div");
+    const speedValue = document.createElement("input");
     speedValue.className = "ytx-player-speed-menu__value";
-    speedValue.textContent = "1.00×";
+    speedValue.type = "number";
+    speedValue.min = "0.1";
+    speedValue.max = "16";
+    speedValue.step = "0.25";
+    speedValue.value = "1";
+    speedValue.setAttribute("aria-label", "Velocidad del vídeo");
     const sliderRow = document.createElement("div");
     sliderRow.className = "ytx-player-speed-menu__slider-row";
     const down = document.createElement("button");
@@ -411,54 +472,43 @@
     const speedSlider = document.createElement("input");
     speedSlider.className = "ytx-player-speed-menu__range";
     speedSlider.type = "range";
-    speedSlider.min = "0.25";
+    speedSlider.min = "0.1";
     speedSlider.max = "16";
-    speedSlider.step = "0.25";
+    speedSlider.step = "0.1";
     speedSlider.value = "1";
     speedSlider.setAttribute("aria-label", "Deslizador de velocidad");
-    const speedInput = document.createElement("input");
-    speedInput.type = "number";
-    speedInput.min = "0.1";
-    speedInput.max = "16";
-    speedInput.step = "0.25";
-    speedInput.value = "1";
-    speedInput.setAttribute("aria-label", "Velocidad del vídeo");
+    const speedInput = speedValue;
     const up = document.createElement("button");
     up.type = "button";
     up.textContent = "+";
     up.setAttribute("aria-label", "Aumentar velocidad en 0,25");
     sliderRow.append(down, speedSlider, up);
-    const manualRow = document.createElement("div");
-    manualRow.className = "ytx-player-speed-menu__manual";
-    const manualLabel = document.createElement("span");
-    manualLabel.textContent = "Velocidad exacta";
-    const reset = document.createElement("button");
-    reset.type = "button";
-    reset.textContent = "1×";
-    reset.setAttribute("aria-label", "Restablecer velocidad a 1x");
     const speedError = document.createElement("span");
     speedError.className = "ytx-player-speed-error";
     speedError.hidden = true;
-    manualRow.append(manualLabel, speedInput, reset);
     const presets = document.createElement("div");
     presets.className = "ytx-player-speed-menu__presets";
     const speedPresets = [];
-    [1, 1.25, 1.5, 2, 2.5, 3, 4, 8, 16].forEach((rate) => {
+    [0.5, 1, 1.5, 2, 2.5, 3, 4, 8].forEach((rate) => {
       const preset = document.createElement("button");
       preset.type = "button";
-      preset.textContent = `${rate}×`;
+      preset.textContent = String(rate).replace(".", ",");
       preset.dataset.rate = String(rate);
       preset.addEventListener("click", () => setSpeed(rate));
       presets.appendChild(preset);
       speedPresets.push(preset);
     });
-    speedMenu.append(speedHeading, speedValue, sliderRow, manualRow, presets, speedError);
+    speedMenu.append(speedHeading, speedValue, sliderRow, presets, speedError);
     player.appendChild(speedMenu);
 
     const video = player.querySelector("video");
     const onDurationChange = () => refreshNoteMarkers();
     const onDocumentPointerMove = (event) => handleProgressPointerMove(event);
     const onDocumentClick = (event) => {
+      if (!speedMenu.hidden && !speedMenu.contains(event.target) && !speedButton.contains(event.target)) {
+        speedMenu.hidden = true;
+        speedButton.setAttribute("aria-expanded", "false");
+      }
       const preview = player.querySelector(":scope > .ytx-progress-marker-preview");
       if (!preview || preview.hidden) return;
       const rect = preview.getBoundingClientRect();
@@ -475,31 +525,37 @@
       event.stopImmediatePropagation();
       openSavedNote(preview.dataset.noteId);
     };
-    video?.addEventListener("durationchange", onDurationChange);
-    document.addEventListener("pointermove", onDocumentPointerMove, true);
-    document.addEventListener("click", onDocumentClick, true);
-    document.addEventListener("keydown", onDocumentKeyDown, true);
-    currentUi = { player, group, transcriptButton, speedButton, notesButton, notesCount, addNoteButton, speedMenu, speedInput, speedSlider, speedValue, speedPresets, speedError, video, onDurationChange, onDocumentPointerMove, onDocumentClick, onDocumentKeyDown };
-    transcriptButton.addEventListener("click", toggleTranscript);
-    notesButton.addEventListener("click", openNotes);
-    addNoteButton.addEventListener("click", openPlayerNoteEditor);
-    speedButton.addEventListener("click", () => {
-      speedMenu.hidden = !speedMenu.hidden;
-      speedButton.setAttribute("aria-expanded", String(!speedMenu.hidden));
-      if (!speedMenu.hidden) speedInput.select();
-    });
-    down.addEventListener("click", () => setSpeed(Number(speedInput.value) - 0.25));
-    up.addEventListener("click", () => setSpeed(Number(speedInput.value) + 0.25));
-    reset.addEventListener("click", () => setSpeed(1));
-    speedSlider.addEventListener("input", () => setSpeed(speedSlider.value));
-    speedInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") setSpeed(speedInput.value);
-      if (event.key === "Escape") {
+    const blockSpeedShortcuts = (event) => {
+      if (event.target !== speedInput) return;
+      event.stopImmediatePropagation();
+      if (event.type !== "keydown") return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        setSpeed(speedInput.value);
+        speedInput.blur();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
         speedMenu.hidden = true;
         speedButton.setAttribute("aria-expanded", "false");
         speedButton.focus();
       }
+    };
+    video?.addEventListener("durationchange", onDurationChange);
+    document.addEventListener("pointermove", onDocumentPointerMove, true);
+    document.addEventListener("click", onDocumentClick, true);
+    document.addEventListener("keydown", onDocumentKeyDown, true);
+    ["keydown", "keyup", "keypress"].forEach((type) => window.addEventListener(type, blockSpeedShortcuts, true));
+    currentUi = { player, group, transcriptButton, speedButton, notesButton, notesCount, addNoteButton, speedMenu, speedInput, speedSlider, speedValue, speedPresets, speedError, video, onDurationChange, onDocumentPointerMove, onDocumentClick, onDocumentKeyDown, blockSpeedShortcuts };
+    transcriptButton.addEventListener("click", toggleTranscript);
+    notesButton.addEventListener("click", () => openNotes(false));
+    addNoteButton.addEventListener("click", openPlayerNoteEditor);
+    speedButton.addEventListener("click", () => {
+      speedMenu.hidden = !speedMenu.hidden;
+      speedButton.setAttribute("aria-expanded", String(!speedMenu.hidden));
     });
+    down.addEventListener("click", () => setSpeed(Number(speedInput.value) - 0.25));
+    up.addEventListener("click", () => setSpeed(Number(speedInput.value) + 0.25));
+    speedSlider.addEventListener("input", () => setSpeed(speedSlider.value));
     chrome.storage.local.get({ lastSpeed: 1 }, (stored) => setSpeed(stored.lastSpeed || 1));
     updateTranscriptButton();
     updateNotesButton();
@@ -539,6 +595,9 @@
     document.removeEventListener("pointermove", currentUi?.onDocumentPointerMove, true);
     document.removeEventListener("click", currentUi?.onDocumentClick, true);
     document.removeEventListener("keydown", currentUi?.onDocumentKeyDown, true);
+    if (currentUi?.blockSpeedShortcuts) {
+      ["keydown", "keyup", "keypress"].forEach((type) => window.removeEventListener(type, currentUi.blockSpeedShortcuts, true));
+    }
     currentUi?.group?.remove();
     currentUi?.speedMenu?.remove();
     document.querySelectorAll(".ytx-progress-markers").forEach((layer) => layer.remove());
@@ -561,7 +620,7 @@
         const value = Number(changes.lastSpeed.newValue) || 1;
         currentUi.speedInput.value = String(value);
         currentUi.speedSlider.value = String(value);
-        currentUi.speedValue.textContent = `${value.toFixed(2)}×`;
+        currentUi.speedValue.value = String(value);
         currentUi.speedPresets.forEach((preset) => preset.classList.toggle("ytx-speed-preset--active", Number(preset.dataset.rate) === value));
       }
       if (changes.ytxSavedNotes) setTimeout(() => ytx.notes.loadCurrent(), 0);

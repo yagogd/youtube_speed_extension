@@ -299,9 +299,17 @@
     const notesHeading = document.createElement("strong");
     notesHeading.className = "ytx-notes__heading";
     notesHeading.textContent = "Marcadores de este vídeo";
+    const notesClose = document.createElement("button");
+    notesClose.type = "button";
+    notesClose.className = "ytx-notes__close";
+    setButtonIcon(notesClose, "close");
+    labelButton(notesClose, "Cerrar marcadores de este vídeo");
+    const notesHeader = document.createElement("div");
+    notesHeader.className = "ytx-notes__header";
+    notesHeader.append(notesHeading, notesClose);
     const notesList = document.createElement("div");
     notesList.className = "ytx-notes__list";
-    notesDrawer.append(notesHeading, notesList);
+    notesDrawer.append(notesHeader, notesList);
 
     const noteEditor = document.createElement("section");
     noteEditor.className = "ytx-note-editor";
@@ -355,6 +363,7 @@
       bookmarkButton,
       notesToggle,
       notesDrawer,
+      notesClose,
       notesList,
       noteEditor,
       noteEditorTime,
