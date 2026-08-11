@@ -4,10 +4,12 @@
   const state = ytx.state;
 
   function onNavigate() {
+    if (state.settings.autoOpenNextVideo) state.dismissedVideoId = null;
     state.transcript = null;
+    state.transcriptTracks = [];
     state.displayBlocks = [];
     state.autoScrollEnabled = true;
-    if (state.settings.enabled && ytx.isWatchPage()) {
+    if (state.settings.extensionEnabled && state.settings.enabled && !state.dismissedVideoId && ytx.isWatchPage()) {
       ytx.panel.showMessage("Cargando transcripción…", "Buscando una pista de subtítulos…");
       ytx.notes.loadCurrent();
     } else {

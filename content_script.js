@@ -4,14 +4,24 @@
   globalThis.__ytxSpeedControllerLoaded = true;
 
   let preferredRate = 1;
+  let extensionEnabled = true;
   let shortcuts = [];
+  let shortcutsEnabled = true;
+  let pauseShortcutsEnabled = true;
+  let pauseShortcuts = [];
+  let suppressNextAutomaticRewind = false;
   let heldShortcut = null;
   let retryTimer = null;
   const pauseRewind = { enabled: false, seconds: 2, mode: "fixed" };
 
   function validRate(value) {
     const rate = Number(value);
-    return Number.isFinite(rate) && rate > 0 ? rate : null;
+    return Number.isFinite(rate) && rate > 0 && rate <= 16 ? rate : null;
+  }
+
+  function validPositive(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? number : null;
   }
 
   function broadcastRate(rate, temporary = false) {
@@ -65,8 +75,33 @@
   }
 
   function onKeyDown(event) {
-    if (event.repeat || isEditableTarget(event.target)) return;
-    const shortcut = shortcuts.find((candidate) => matchesShortcut(event, candidate));
+    if (!extensionEnabled || event.repeat || isEditableTarget(event.target)) return;
+    const pauseShortcut = pauseShortcutsEnabled
+      ? pauseShortcuts.find((candidate) => candidate.enabled !== false && matchesShortcut(event, candidate))
+      : null;
+    if (pauseShortcut) {
+      const video = document.querySelector("video");
+      if (!video) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (pauseShortcut.action === "pause-rewind") {
+        if (!video.paused) {
+          suppressNextAutomaticRewind = true;
+          video.pause();
+        }
+        const shortcutSeconds = validPositive(pauseShortcut.seconds) || 3;
+        const multiplier = pauseShortcut.mode === "scaled" ? video.playbackRate : 1;
+        video.currentTime = Math.max(0, video.currentTime - shortcutSeconds * multiplier);
+      } else if (video.paused) {
+        video.play().catch(() => {});
+      } else {
+        suppressNextAutomaticRewind = true;
+        video.pause();
+      }
+      return;
+    }
+    if (!shortcutsEnabled) return;
+    const shortcut = shortcuts.find((candidate) => candidate.enabled !== false && matchesShortcut(event, candidate));
     if (!shortcut) return;
 
     const speed = validRate(shortcut.speed);
@@ -83,6 +118,12 @@
   }
 
   function onKeyUp(event) {
+    if (extensionEnabled && pauseShortcutsEnabled &&
+        pauseShortcuts.some((candidate) => candidate.enabled !== false && matchesShortcut(event, candidate))) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
     if (!heldShortcut || event.code !== heldShortcut.code) return;
     event.preventDefault();
     heldShortcut = null;
@@ -91,17 +132,25 @@
 
   chrome.storage.local.get({
     lastSpeed: 1,
+    extensionEnabled: true,
     speedShortcuts: [],
+    speedShortcutsEnabled: true,
+    pauseShortcutsEnabled: true,
+    pauseShortcuts: [],
     pauseRewindEnabled: false,
     pauseRewindSeconds: 2,
     pauseRewindMode: "fixed",
   }, (stored) => {
     preferredRate = validRate(stored.lastSpeed) || 1;
+    extensionEnabled = stored.extensionEnabled !== false;
     shortcuts = Array.isArray(stored.speedShortcuts) ? stored.speedShortcuts : [];
+    shortcutsEnabled = stored.speedShortcutsEnabled !== false;
+    pauseShortcutsEnabled = stored.pauseShortcutsEnabled !== false;
+    pauseShortcuts = Array.isArray(stored.pauseShortcuts) ? stored.pauseShortcuts : [];
     pauseRewind.enabled = Boolean(stored.pauseRewindEnabled);
-    pauseRewind.seconds = validRate(stored.pauseRewindSeconds) || 2;
+    pauseRewind.seconds = validPositive(stored.pauseRewindSeconds) || 2;
     pauseRewind.mode = stored.pauseRewindMode === "scaled" ? "scaled" : "fixed";
-    applyCurrentRateWithRetry();
+    if (extensionEnabled) applyCurrentRateWithRetry();
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
@@ -110,22 +159,42 @@
       preferredRate = validRate(changes.lastSpeed.newValue) || preferredRate;
       if (!heldShortcut) applyCurrentRateWithRetry();
     }
+    if (changes.extensionEnabled) {
+      extensionEnabled = changes.extensionEnabled.newValue !== false;
+      heldShortcut = null;
+      if (extensionEnabled) applyCurrentRateWithRetry();
+      else applyRate(1, false);
+    }
     if (changes.speedShortcuts) {
       shortcuts = Array.isArray(changes.speedShortcuts.newValue) ? changes.speedShortcuts.newValue : [];
     }
+    if (changes.speedShortcutsEnabled) {
+      shortcutsEnabled = changes.speedShortcutsEnabled.newValue !== false;
+      if (!shortcutsEnabled && heldShortcut) {
+        heldShortcut = null;
+        applyRate(preferredRate, false);
+      }
+    }
+    if (changes.pauseShortcutsEnabled) pauseShortcutsEnabled = changes.pauseShortcutsEnabled.newValue !== false;
+    if (changes.pauseShortcuts) pauseShortcuts = Array.isArray(changes.pauseShortcuts.newValue) ? changes.pauseShortcuts.newValue : [];
     if (changes.pauseRewindEnabled) pauseRewind.enabled = Boolean(changes.pauseRewindEnabled.newValue);
-    if (changes.pauseRewindSeconds) pauseRewind.seconds = validRate(changes.pauseRewindSeconds.newValue) || 2;
+    if (changes.pauseRewindSeconds) pauseRewind.seconds = validPositive(changes.pauseRewindSeconds.newValue) || 2;
     if (changes.pauseRewindMode) pauseRewind.mode = changes.pauseRewindMode.newValue === "scaled" ? "scaled" : "fixed";
   });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.type !== "set-speed") return;
+    if (!extensionEnabled) {
+      sendResponse({ ok: false, error: "La extensión está apagada" });
+      return;
+    }
     const ok = setPreferredRate(message.value, true);
-    sendResponse({ ok, error: ok ? undefined : "Velocidad no válida" });
+    sendResponse({ ok, error: ok ? undefined : Number(message.value) > 16 ? "La velocidad máxima es 16x" : "Velocidad no válida" });
   });
 
   window.addEventListener("message", (event) => {
     if (event.source !== window || event.data?.source !== "YT_SPEED_CONTROL") return;
+    if (!extensionEnabled) return;
     setPreferredRate(event.data.rate, true);
   });
   window.addEventListener("keydown", onKeyDown, true);
@@ -138,7 +207,11 @@
   }, true);
   document.addEventListener("pause", (event) => {
     const video = event.target;
-    if (!(video instanceof HTMLVideoElement) || !pauseRewind.enabled || video.ended) return;
+    if (suppressNextAutomaticRewind) {
+      suppressNextAutomaticRewind = false;
+      return;
+    }
+    if (!extensionEnabled || !(video instanceof HTMLVideoElement) || !pauseRewind.enabled || video.ended) return;
     const multiplier = pauseRewind.mode === "scaled" ? video.playbackRate : 1;
     video.currentTime = Math.max(0, video.currentTime - pauseRewind.seconds * multiplier);
   }, true);

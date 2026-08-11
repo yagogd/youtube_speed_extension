@@ -18,14 +18,44 @@
 
   function onStorageChanged(changes, area) {
     if (area !== "local") return;
-    if (changes.transcriptEnabled) state.settings.enabled = changes.transcriptEnabled.newValue;
+    const relevant = changes.extensionEnabled || changes.transcriptEnabled || changes.transcriptMode ||
+      changes.transcriptGrouping || changes.transcriptPreferredLanguage || changes.transcriptAutoOpenNextVideo ||
+      changes.transcriptPanelBackground || changes.transcriptPanelTextColor || changes.transcriptPanelFont ||
+      changes.transcriptPanelFontSize || changes.transcriptPanelOpacity;
+    if (!relevant) return;
+    const needsTranscriptRequest = Boolean(changes.extensionEnabled || changes.transcriptEnabled || changes.transcriptPreferredLanguage);
+    if (changes.extensionEnabled) {
+      state.settings.extensionEnabled = changes.extensionEnabled.newValue !== false;
+      if (state.settings.extensionEnabled) state.dismissedVideoId = null;
+    }
+    if (changes.transcriptEnabled) {
+      state.settings.enabled = changes.transcriptEnabled.newValue;
+      if (changes.transcriptEnabled.newValue) state.dismissedVideoId = null;
+    }
     if (changes.transcriptMode) state.settings.mode = changes.transcriptMode.newValue;
     if (changes.transcriptGrouping) state.settings.grouping = changes.transcriptGrouping.newValue;
+    if (changes.transcriptPreferredLanguage) state.settings.preferredLanguage = changes.transcriptPreferredLanguage.newValue || "auto";
+    if (changes.transcriptAutoOpenNextVideo) state.settings.autoOpenNextVideo = changes.transcriptAutoOpenNextVideo.newValue !== false;
+    if (changes.transcriptPanelBackground) state.appearance.background = changes.transcriptPanelBackground.newValue;
+    if (changes.transcriptPanelTextColor) state.appearance.text = changes.transcriptPanelTextColor.newValue;
+    if (changes.transcriptPanelFont) state.appearance.font = changes.transcriptPanelFont.newValue;
+    if (changes.transcriptPanelFontSize) state.appearance.fontSize = changes.transcriptPanelFontSize.newValue;
+    if (changes.transcriptPanelOpacity) state.appearance.opacity = changes.transcriptPanelOpacity.newValue;
 
-    if (!state.settings.enabled) ytx.panel.remove();
+    const appearanceChanged = changes.transcriptPanelBackground || changes.transcriptPanelTextColor ||
+      changes.transcriptPanelFont || changes.transcriptPanelFontSize || changes.transcriptPanelOpacity;
+    const functionalChanged = changes.extensionEnabled || changes.transcriptEnabled || changes.transcriptMode ||
+      changes.transcriptGrouping || changes.transcriptPreferredLanguage || changes.transcriptAutoOpenNextVideo;
+    if (appearanceChanged && !functionalChanged) {
+      ytx.panel.applyAppearance?.();
+      return;
+    }
+
+    if (!state.settings.extensionEnabled || !state.settings.enabled) ytx.panel.remove();
     else if (state.transcript) ytx.renderer.renderCurrentMode();
     else ytx.panel.ensure();
-    ytx.bridge.sendControl();
+    ytx.panel.applyAppearance?.();
+    if (needsTranscriptRequest) ytx.bridge.sendControl();
   }
 
   async function start() {
@@ -38,13 +68,31 @@
       await injectPageScript("inject.js");
       chrome.storage.local.get({
         transcriptEnabled: true,
+        extensionEnabled: true,
         transcriptMode: "full",
-        transcriptGrouping: "grouped",
+      transcriptGrouping: "grouped",
+      transcriptPreferredLanguage: "auto",
+      transcriptAutoOpenNextVideo: true,
+      transcriptPanelBackground: "#1e1e22",
+      transcriptPanelTextColor: "#e4e4e7",
+      transcriptPanelFont: "Inter, Roboto, Arial, sans-serif",
+      transcriptPanelFontSize: 13.5,
+      transcriptPanelOpacity: 0.84,
       }, (stored) => {
         state.settings.enabled = stored.transcriptEnabled;
+        state.settings.extensionEnabled = stored.extensionEnabled;
         state.settings.mode = stored.transcriptMode;
         state.settings.grouping = stored.transcriptGrouping;
-        if (state.settings.enabled && ytx.isWatchPage()) ytx.panel.ensure();
+        state.settings.preferredLanguage = stored.transcriptPreferredLanguage;
+        state.settings.autoOpenNextVideo = stored.transcriptAutoOpenNextVideo;
+        state.appearance = {
+          background: stored.transcriptPanelBackground,
+          text: stored.transcriptPanelTextColor,
+          font: stored.transcriptPanelFont,
+          fontSize: stored.transcriptPanelFontSize,
+          opacity: stored.transcriptPanelOpacity,
+        };
+        if (state.settings.extensionEnabled && state.settings.enabled && ytx.isWatchPage()) ytx.panel.ensure();
         ytx.bridge.sendControl();
       });
     } catch (error) {

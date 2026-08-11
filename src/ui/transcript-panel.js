@@ -7,6 +7,77 @@
     transcriptPanelMinimized: false,
     transcriptHeaderCollapsed: false,
   };
+  const ICON_PATHS = {
+    search: ['<circle cx="11" cy="11" r="7"/>', '<path d="m20 20-4-4"/>'],
+    star: ['<path d="m12 2.8 2.8 5.7 6.3.9-4.6 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2-4.6-4.4 6.3-.9Z"/>'],
+    list: ['<path d="M8 6h13M8 12h13M8 18h13"/>', '<path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>'],
+    chevronUp: ['<path d="m6 15 6-6 6 6"/>'],
+    chevronDown: ['<path d="m6 9 6 6 6-6"/>'],
+    minus: ['<path d="M5 12h14"/>'],
+    plus: ['<path d="M12 5v14M5 12h14"/>'],
+    close: ['<path d="m6 6 12 12M18 6 6 18"/>'],
+    copy: ['<rect x="8" y="8" width="11" height="11" rx="2"/>', '<path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'],
+    check: ['<path d="m5 12 4 4L19 6"/>'],
+    edit: ['<path d="M12 20h9"/>', '<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>'],
+    trash: ['<path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/>'],
+    arrowUp: ['<path d="m6 11 6-6 6 6M12 5v14"/>'],
+    arrowDown: ['<path d="m6 13 6 6 6-6M12 19V5"/>'],
+  };
+
+  function setButtonIcon(button, name) {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    svg.classList.add("ytx-icon");
+    svg.innerHTML = (ICON_PATHS[name] || []).join("");
+    button.replaceChildren(svg);
+  }
+
+  function labelButton(button, label) {
+    button.title = label;
+    button.setAttribute("aria-label", label);
+  }
+
+  function applyAppearance() {
+    const panel = state.ui?.panel;
+    if (!panel) return;
+    const appearance = state.appearance || {};
+    const hex = /^#[0-9a-f]{6}$/i.test(appearance.background) ? appearance.background : "#1e1e22";
+    const red = parseInt(hex.slice(1, 3), 16);
+    const green = parseInt(hex.slice(3, 5), 16);
+    const blue = parseInt(hex.slice(5, 7), 16);
+    const opacity = Math.min(1, Math.max(0.35, Number(appearance.opacity) || 0.84));
+    panel.style.setProperty("--ytx-panel-background", `rgba(${red}, ${green}, ${blue}, ${opacity})`);
+    panel.style.setProperty("--ytx-panel-text", appearance.text || "#e4e4e7");
+    panel.style.setProperty("--ytx-panel-font", appearance.font || "Inter, Roboto, Arial, sans-serif");
+    panel.style.setProperty("--ytx-panel-font-size", `${Math.min(22, Math.max(10, Number(appearance.fontSize) || 13.5))}px`);
+  }
+
+  function showNotice(message) {
+    const panel = state.ui?.panel;
+    if (!panel) return;
+    panel.querySelector(".ytx-notice")?.remove();
+    const notice = document.createElement("div");
+    notice.className = "ytx-notice";
+    notice.setAttribute("role", "alertdialog");
+    notice.setAttribute("aria-modal", "true");
+    notice.setAttribute("aria-label", "Aviso");
+    const text = document.createElement("p");
+    text.textContent = message;
+    const accept = document.createElement("button");
+    accept.type = "button";
+    accept.className = "ytx-button ytx-notice__accept";
+    accept.textContent = "Aceptar";
+    const close = () => notice.remove();
+    accept.addEventListener("click", close);
+    notice.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") close();
+    });
+    notice.append(text, accept);
+    panel.appendChild(notice);
+    accept.focus();
+  }
 
   function applyStoredGeometry(panel, geometry) {
     if (!geometry) return null;
@@ -50,12 +121,29 @@
       const compact = rect.height < 340 || rect.width < 520;
       ui.panel.classList.toggle("ytx-panel--compact", compact);
       ui.title.textContent = compact ? "Transcripción" : ui.title.dataset.fullTitle;
-      ui.copyButton.textContent = compact ? "⧉" : "Copiar todo";
+      ui.copyButton.classList.toggle("ytx-button--icon-only", compact);
     };
     const observer = new ResizeObserver(update);
     observer.observe(ui.panel);
     update();
     return () => observer.disconnect();
+  }
+
+  function updateTrackSelector() {
+    const ui = state.ui;
+    if (!ui?.trackSelect) return;
+    const tracks = Array.isArray(state.transcriptTracks) ? state.transcriptTracks : [];
+    ui.trackSelect.replaceChildren();
+    tracks.forEach((track) => {
+      const option = document.createElement("option");
+      option.value = track.id;
+      option.textContent = `${track.languageName || track.languageCode}${track.isAutomatic ? " · automática" : ""}`;
+      ui.trackSelect.appendChild(option);
+    });
+    ui.trackSelector.hidden = tracks.length < 2;
+    if (state.transcript?.selectedTrackId && tracks.some((track) => track.id === state.transcript.selectedTrackId)) {
+      ui.trackSelect.value = state.transcript.selectedTrackId;
+    }
   }
 
   function createPanel() {
@@ -65,6 +153,8 @@
     const panel = document.createElement("aside");
     panel.id = "yt-transcript-panel";
     panel.className = "ytx-panel";
+    panel.setAttribute("role", "region");
+    panel.setAttribute("aria-label", "Panel de transcripción");
 
     const header = document.createElement("div");
     header.className = "ytx-panel__header";
@@ -81,107 +171,131 @@
     const speedDownButton = document.createElement("button");
     speedDownButton.type = "button";
     speedDownButton.className = "ytx-speed-control__button";
-    speedDownButton.textContent = "−";
-    speedDownButton.title = "Reducir 0,25x";
+    setButtonIcon(speedDownButton, "minus");
+    labelButton(speedDownButton, "Reducir velocidad en 0,25");
 
     const speedInput = document.createElement("input");
     speedInput.className = "ytx-speed-control__input";
     speedInput.type = "number";
     speedInput.min = "0.1";
+    speedInput.max = "16";
     speedInput.step = "0.25";
     speedInput.value = "1";
     speedInput.title = "Velocidad del vídeo";
+    speedInput.setAttribute("aria-label", "Velocidad del vídeo");
 
     const speedUpButton = document.createElement("button");
     speedUpButton.type = "button";
     speedUpButton.className = "ytx-speed-control__button";
-    speedUpButton.textContent = "+";
-    speedUpButton.title = "Aumentar 0,25x";
+    setButtonIcon(speedUpButton, "plus");
+    labelButton(speedUpButton, "Aumentar velocidad en 0,25");
 
     const speedResetButton = document.createElement("button");
     speedResetButton.type = "button";
     speedResetButton.className = "ytx-speed-control__reset";
     speedResetButton.textContent = "1×";
-    speedResetButton.title = "Restablecer a 1x";
+    labelButton(speedResetButton, "Restablecer velocidad a 1x");
     speedControl.append(speedDownButton, speedInput, speedUpButton, speedResetButton);
 
     const copyButton = document.createElement("button");
     copyButton.type = "button";
     copyButton.className = "ytx-button ytx-button--copy";
     copyButton.dataset.copyTranscript = "";
-    copyButton.textContent = "Copiar todo";
-    copyButton.title = "Copiar toda la transcripción";
+    setButtonIcon(copyButton, "copy");
+    labelButton(copyButton, "Copiar toda la transcripción");
 
     const collapseHeaderButton = document.createElement("button");
     collapseHeaderButton.type = "button";
     collapseHeaderButton.className = "ytx-button ytx-button--collapse-header";
-    collapseHeaderButton.textContent = "⌃";
-    collapseHeaderButton.title = "Ocultar la cabecera";
+    setButtonIcon(collapseHeaderButton, "chevronUp");
+    labelButton(collapseHeaderButton, "Ocultar la cabecera");
+    collapseHeaderButton.setAttribute("aria-expanded", "true");
 
     const searchToggle = document.createElement("button");
     searchToggle.type = "button";
     searchToggle.className = "ytx-button ytx-button--search";
-    searchToggle.textContent = "⌕";
-    searchToggle.title = "Buscar en la transcripción";
+    setButtonIcon(searchToggle, "search");
+    labelButton(searchToggle, "Buscar en la transcripción");
+    searchToggle.setAttribute("aria-expanded", "false");
+    searchToggle.setAttribute("aria-controls", "ytx-transcript-search");
 
     const bookmarkButton = document.createElement("button");
     bookmarkButton.type = "button";
     bookmarkButton.className = "ytx-button ytx-button--bookmark";
-    bookmarkButton.textContent = "☆";
-    bookmarkButton.title = "Guardar el momento actual";
+    setButtonIcon(bookmarkButton, "star");
+    labelButton(bookmarkButton, "Guardar el momento actual");
 
     const notesToggle = document.createElement("button");
     notesToggle.type = "button";
     notesToggle.className = "ytx-button ytx-button--notes";
-    notesToggle.textContent = "☷";
-    notesToggle.title = "Marcadores de este vídeo";
+    setButtonIcon(notesToggle, "list");
+    labelButton(notesToggle, "Mostrar notas y favoritos de este vídeo");
+    notesToggle.setAttribute("aria-expanded", "false");
+    notesToggle.setAttribute("aria-controls", "ytx-transcript-notes");
 
     const minimizeButton = document.createElement("button");
     minimizeButton.type = "button";
     minimizeButton.className = "ytx-button ytx-button--minimize";
-    minimizeButton.textContent = "—";
-    minimizeButton.title = "Minimizar o restaurar";
+    setButtonIcon(minimizeButton, "minus");
+    labelButton(minimizeButton, "Minimizar el panel");
+    minimizeButton.setAttribute("aria-expanded", "true");
 
     const closeButton = document.createElement("button");
     closeButton.type = "button";
     closeButton.className = "ytx-button ytx-button--close";
-    closeButton.textContent = "×";
-    closeButton.title = "Cerrar la transcripción";
+    setButtonIcon(closeButton, "close");
+    labelButton(closeButton, "Cerrar la transcripción");
 
     const content = document.createElement("div");
     content.className = "ytx-panel__content";
     content.dataset.transcriptContent = "";
     content.textContent = "Buscando una pista de subtítulos…";
 
+    const trackSelector = document.createElement("div");
+    trackSelector.className = "ytx-track-selector";
+    trackSelector.hidden = true;
+    const trackLabel = document.createElement("label");
+    trackLabel.htmlFor = "ytx-transcript-track";
+    trackLabel.textContent = "Pista";
+    const trackSelect = document.createElement("select");
+    trackSelect.id = "ytx-transcript-track";
+    trackSelect.setAttribute("aria-label", "Pista de subtítulos");
+    trackSelector.append(trackLabel, trackSelect);
+
     const searchBar = document.createElement("div");
+    searchBar.id = "ytx-transcript-search";
     searchBar.className = "ytx-search";
+    searchBar.setAttribute("role", "search");
     const searchInput = document.createElement("input");
     searchInput.className = "ytx-search__input";
     searchInput.type = "search";
     searchInput.placeholder = "Buscar en la transcripción…";
     searchInput.value = state.search.query;
+    searchInput.setAttribute("aria-label", "Buscar texto en la transcripción");
     const searchCounter = document.createElement("span");
     searchCounter.className = "ytx-search__counter";
     searchCounter.textContent = "0/0";
     const searchPrevious = document.createElement("button");
     searchPrevious.type = "button";
     searchPrevious.className = "ytx-search__button";
-    searchPrevious.textContent = "↑";
-    searchPrevious.title = "Coincidencia anterior";
+    setButtonIcon(searchPrevious, "arrowUp");
+    labelButton(searchPrevious, "Coincidencia anterior");
     const searchNext = document.createElement("button");
     searchNext.type = "button";
     searchNext.className = "ytx-search__button";
-    searchNext.textContent = "↓";
-    searchNext.title = "Coincidencia siguiente";
+    setButtonIcon(searchNext, "arrowDown");
+    labelButton(searchNext, "Coincidencia siguiente");
     const searchClose = document.createElement("button");
     searchClose.type = "button";
     searchClose.className = "ytx-search__button";
-    searchClose.textContent = "×";
-    searchClose.title = "Cerrar búsqueda";
+    setButtonIcon(searchClose, "close");
+    labelButton(searchClose, "Cerrar búsqueda");
     searchBar.append(searchInput, searchCounter, searchPrevious, searchNext, searchClose);
 
     const notesDrawer = document.createElement("section");
+    notesDrawer.id = "ytx-transcript-notes";
     notesDrawer.className = "ytx-notes";
+    notesDrawer.setAttribute("aria-label", "Notas y favoritos de este vídeo");
     const notesHeading = document.createElement("strong");
     notesHeading.className = "ytx-notes__heading";
     notesHeading.textContent = "Marcadores de este vídeo";
@@ -191,6 +305,8 @@
 
     const noteEditor = document.createElement("section");
     noteEditor.className = "ytx-note-editor";
+    noteEditor.setAttribute("role", "dialog");
+    noteEditor.setAttribute("aria-label", "Editor de nota");
     const noteEditorHeading = document.createElement("div");
     noteEditorHeading.className = "ytx-note-editor__heading";
     const noteEditorTime = document.createElement("strong");
@@ -200,6 +316,7 @@
     const noteEditorInput = document.createElement("textarea");
     noteEditorInput.className = "ytx-note-editor__input";
     noteEditorInput.placeholder = "Añade una nota opcional…";
+    noteEditorInput.setAttribute("aria-label", "Texto de la nota");
     const noteEditorActions = document.createElement("div");
     noteEditorActions.className = "ytx-note-editor__actions";
     const noteEditorCancel = document.createElement("button");
@@ -215,7 +332,7 @@
     headerActions.className = "ytx-panel__actions";
     headerActions.append(searchToggle, bookmarkButton, notesToggle, collapseHeaderButton, copyButton, minimizeButton, closeButton);
     header.append(title, speedControl, headerActions);
-    panel.append(header, searchBar, notesDrawer, noteEditor, content);
+    panel.append(header, trackSelector, searchBar, notesDrawer, noteEditor, content);
     (document.fullscreenElement || document.body).appendChild(panel);
 
     const ui = {
@@ -226,6 +343,8 @@
       speedControl,
       speedInput,
       headerActions,
+      trackSelector,
+      trackSelect,
       searchToggle,
       searchBar,
       searchInput,
@@ -250,16 +369,36 @@
       cleanups: [],
     };
     state.ui = ui;
+    applyAppearance();
     ui.cleanups.push(ytx.addResizeHandles(panel));
     ui.cleanups.push(ytx.makePanelDraggable(panel, header));
     ui.cleanups.push(setupAdaptiveHeader(ui));
     ui.cleanups.push(ytx.search.attach(ui));
     ui.cleanups.push(ytx.notes.attach(ui));
-    if (state.search.query) panel.classList.add("ytx-panel--search-open");
+    if (state.search.query) {
+      panel.classList.add("ytx-panel--search-open");
+      searchToggle.setAttribute("aria-expanded", "true");
+    }
+    updateTrackSelector();
+
+    const onTrackChange = () => {
+      window.postMessage({
+        source: "YT_TRANSCRIPT_CONTROL",
+        enabled: true,
+        preferredLanguage: state.settings.preferredLanguage || "auto",
+        selectTrackId: trackSelect.value,
+      }, "*");
+    };
+    trackSelect.addEventListener("change", onTrackChange);
+    ui.cleanups.push(() => trackSelect.removeEventListener("change", onTrackChange));
 
     const sendSpeed = (value) => {
       const rate = Number(value);
       if (!Number.isFinite(rate) || rate <= 0) return;
+      if (rate > 16) {
+        showNotice("No puedes usar una velocidad superior a 16×, ya que es el máximo permitido.");
+        return;
+      }
       const normalized = Math.round(rate * 100) / 100;
       speedInput.value = String(normalized);
       window.postMessage({ source: "YT_SPEED_CONTROL", rate: normalized }, "*");
@@ -302,7 +441,9 @@
       panel.classList.toggle("ytx-panel--minimized", minimized);
       panel.style.minHeight = minimized ? "58px" : "130px";
       panel.style.height = minimized ? "58px" : `${previousHeight}px`;
-      minimizeButton.textContent = minimized ? "+" : "—";
+      setButtonIcon(minimizeButton, minimized ? "plus" : "minus");
+      labelButton(minimizeButton, minimized ? "Restaurar el panel" : "Minimizar el panel");
+      minimizeButton.setAttribute("aria-expanded", String(!minimized));
       chrome.storage.local.set({ transcriptPanelMinimized: minimized });
       savePanelGeometry(panel, previousHeight);
     };
@@ -313,14 +454,23 @@
     const onCollapseHeader = () => {
       headerCollapsed = !headerCollapsed;
       panel.classList.toggle("ytx-panel--header-collapsed", headerCollapsed);
-      collapseHeaderButton.textContent = headerCollapsed ? "⌄" : "⌃";
-      collapseHeaderButton.title = headerCollapsed ? "Mostrar la cabecera" : "Ocultar la cabecera";
+      setButtonIcon(collapseHeaderButton, headerCollapsed ? "chevronDown" : "chevronUp");
+      labelButton(collapseHeaderButton, headerCollapsed ? "Mostrar la cabecera" : "Ocultar la cabecera");
+      collapseHeaderButton.setAttribute("aria-expanded", String(!headerCollapsed));
       chrome.storage.local.set({ transcriptHeaderCollapsed: headerCollapsed });
     };
     collapseHeaderButton.addEventListener("click", onCollapseHeader);
     ui.cleanups.push(() => collapseHeaderButton.removeEventListener("click", onCollapseHeader));
 
-    const onClose = () => chrome.storage.local.set({ transcriptEnabled: false });
+    const onClose = () => {
+      if (state.settings.autoOpenNextVideo) {
+        state.dismissedVideoId = new URL(location.href).searchParams.get("v");
+        removePanel();
+        ytx.bridge.sendControl();
+      } else {
+        chrome.storage.local.set({ transcriptEnabled: false });
+      }
+    };
     closeButton.addEventListener("click", onClose);
     ui.cleanups.push(() => closeButton.removeEventListener("click", onClose));
 
@@ -328,9 +478,9 @@
       const blocks = state.displayBlocks || [];
       if (!blocks.length) return;
       await navigator.clipboard.writeText(blocks.map((block) => block.text).join(" "));
-      copyButton.textContent = "✓";
+      setButtonIcon(copyButton, "check");
       setTimeout(() => {
-        if (state.ui === ui) copyButton.textContent = panel.classList.contains("ytx-panel--compact") ? "⧉" : "Copiar todo";
+        if (state.ui === ui) setButtonIcon(copyButton, "copy");
       }, 1200);
     };
     copyButton.addEventListener("click", onCopyAll);
@@ -368,9 +518,12 @@
       panel.classList.toggle("ytx-panel--header-collapsed", headerCollapsed);
       panel.style.minHeight = minimized ? "58px" : "130px";
       panel.style.height = minimized ? "58px" : `${previousHeight}px`;
-      minimizeButton.textContent = minimized ? "+" : "—";
-      collapseHeaderButton.textContent = headerCollapsed ? "⌄" : "⌃";
-      collapseHeaderButton.title = headerCollapsed ? "Mostrar la cabecera" : "Ocultar la cabecera";
+      setButtonIcon(minimizeButton, minimized ? "plus" : "minus");
+      labelButton(minimizeButton, minimized ? "Restaurar el panel" : "Minimizar el panel");
+      minimizeButton.setAttribute("aria-expanded", String(!minimized));
+      setButtonIcon(collapseHeaderButton, headerCollapsed ? "chevronDown" : "chevronUp");
+      labelButton(collapseHeaderButton, headerCollapsed ? "Mostrar la cabecera" : "Ocultar la cabecera");
+      collapseHeaderButton.setAttribute("aria-expanded", String(!headerCollapsed));
     });
     return ui;
   }
@@ -384,7 +537,7 @@
   }
 
   function ensurePanel() {
-    if (!state.settings.enabled || !ytx.isWatchPage()) {
+    if (!state.settings.extensionEnabled || !state.settings.enabled || state.dismissedVideoId === new URL(location.href).searchParams.get("v") || !ytx.isWatchPage()) {
       removePanel();
       return null;
     }
@@ -402,5 +555,5 @@
     ui.content.replaceChildren(paragraph);
   }
 
-  ytx.panel = { create: createPanel, remove: removePanel, ensure: ensurePanel, setTitle, showMessage };
+  ytx.panel = { create: createPanel, remove: removePanel, ensure: ensurePanel, setTitle, showMessage, showNotice, updateTrackSelector, applyAppearance, setButtonIcon, labelButton };
 })();

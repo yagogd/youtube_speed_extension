@@ -1,5 +1,29 @@
 // popup.js
 document.addEventListener('DOMContentLoaded', () => {
+  function alert(message) {
+    document.querySelector('.popup-notice')?.remove();
+    const overlay = document.createElement('div');
+    overlay.className = 'popup-notice';
+    overlay.setAttribute('role', 'alertdialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Aviso');
+    const box = document.createElement('div');
+    box.className = 'popup-notice__box';
+    const text = document.createElement('p');
+    text.textContent = String(message);
+    const accept = document.createElement('button');
+    accept.className = 'primary';
+    accept.textContent = 'Aceptar';
+    const close = () => overlay.remove();
+    accept.addEventListener('click', close);
+    overlay.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') close();
+    });
+    box.append(text, accept);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    accept.focus();
+  }
   const mainView = document.getElementById('main-view');
   const settingsView = document.getElementById('settings-view');
   const openSettingsButtons = [
@@ -9,6 +33,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeSettingsButton = document.getElementById('close-settings');
   const resetPanelLayout = document.getElementById('reset-panel-layout');
   const settingsStatus = document.getElementById('settings-status');
+  const panelBackground = document.getElementById('panel-background');
+  const panelTextColor = document.getElementById('panel-text-color');
+  const panelFont = document.getElementById('panel-font');
+  const panelFontSize = document.getElementById('panel-font-size');
+  const panelOpacity = document.getElementById('panel-opacity');
+  const resetPanelAppearance = document.getElementById('reset-panel-appearance');
+  const themeToggle = document.getElementById('theme-toggle');
+  const extensionPower = document.getElementById('extension-power');
+  const extensionStatus = document.getElementById('extension-status');
   const speedInput = document.getElementById('speed');
   const applyBtn = document.getElementById('apply');
   const resetBtn = document.getElementById('reset');
@@ -16,6 +49,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const transcriptEnabled = document.getElementById('transcript-enabled');
   const transcriptMode = document.getElementById('transcript-mode');
   const transcriptGrouping = document.getElementById('transcript-grouping');
+  const transcriptPreferredLanguage = document.getElementById('transcript-preferred-language');
+  const transcriptAutoOpenNext = document.getElementById('transcript-auto-open-next');
+  const quickTranscriptEnabled = document.getElementById('quick-transcript-enabled');
+  const quickTranscriptMode = document.getElementById('quick-transcript-mode');
+  const quickTranscriptGrouping = document.getElementById('quick-transcript-grouping');
   const shortcutSettingsToggle = document.getElementById('shortcut-settings-toggle');
   const shortcutSettings = document.getElementById('shortcut-settings');
   const shortcutKeyButton = document.getElementById('shortcut-key');
@@ -23,6 +61,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const shortcutBehavior = document.getElementById('shortcut-behavior');
   const shortcutAdd = document.getElementById('shortcut-add');
   const shortcutList = document.getElementById('shortcut-list');
+  const speedShortcutsEnabled = document.getElementById('speed-shortcuts-enabled');
+  const quickShortcutsEnabled = document.getElementById('quick-shortcuts-enabled');
+  const quickShortcutsSummary = document.getElementById('quick-shortcuts-summary');
+  const quickShortcutsList = document.getElementById('quick-shortcuts-list');
+  const openSettingsShortcuts = document.getElementById('open-settings-shortcuts');
+  const pauseShortcutsEnabled = document.getElementById('pause-shortcuts-enabled');
+  const pauseShortcutKey = document.getElementById('pause-shortcut-key');
+  const pauseShortcutAction = document.getElementById('pause-shortcut-action');
+  const pauseShortcutRewindOptions = document.getElementById('pause-shortcut-rewind-options');
+  const pauseShortcutSeconds = document.getElementById('pause-shortcut-seconds');
+  const pauseShortcutMode = document.getElementById('pause-shortcut-mode');
+  const pauseShortcutAdd = document.getElementById('pause-shortcut-add');
+  const pauseShortcutList = document.getElementById('pause-shortcut-list');
   const globalNotesToggle = document.getElementById('global-notes-toggle');
   const globalNotes = document.getElementById('global-notes');
   const notesExport = document.getElementById('notes-export');
@@ -30,10 +81,60 @@ document.addEventListener('DOMContentLoaded', () => {
   const pauseRewindEnabled = document.getElementById('pause-rewind-enabled');
   const pauseRewindSeconds = document.getElementById('pause-rewind-seconds');
   const pauseRewindMode = document.getElementById('pause-rewind-mode');
+  const quickPauseEnabled = document.getElementById('quick-pause-enabled');
+  const quickPauseSeconds = document.getElementById('quick-pause-seconds');
+  const quickPauseMode = document.getElementById('quick-pause-mode');
   let speedShortcuts = [];
   let capturedShortcut = null;
   let pendingModifier = null;
   let editingShortcutId = null;
+  let pauseShortcuts = [];
+  let capturedPauseShortcut = null;
+  let pendingPauseModifier = null;
+  let extensionEnabled = true;
+
+  function applyPopupTheme(theme) {
+    const light = theme === 'light';
+    document.body.classList.toggle('popup-light', light);
+    themeToggle.textContent = light ? '☾' : '☀';
+    themeToggle.title = light ? 'Usar tema oscuro' : 'Usar tema claro';
+    themeToggle.setAttribute('aria-label', themeToggle.title);
+  }
+
+  function applyExtensionState(enabled) {
+    extensionEnabled = enabled;
+    mainView.classList.toggle('extension-off', !enabled);
+    extensionPower.setAttribute('aria-pressed', String(enabled));
+    extensionPower.title = enabled ? 'Apagar extensión' : 'Encender extensión';
+    extensionPower.setAttribute('aria-label', extensionPower.title);
+    extensionStatus.textContent = enabled ? 'Control rápido' : 'Extensión apagada';
+    [speedInput, applyBtn, resetBtn, ...presets, quickTranscriptEnabled,
+      quickPauseEnabled, quickShortcutsEnabled].forEach((control) => { control.disabled = !enabled; });
+  }
+
+  chrome.storage.local.get({ popupTheme: 'dark', extensionEnabled: true }, (stored) => {
+    applyPopupTheme(stored.popupTheme);
+    applyExtensionState(stored.extensionEnabled);
+  });
+  themeToggle.addEventListener('click', () => {
+    const theme = document.body.classList.contains('popup-light') ? 'dark' : 'light';
+    applyPopupTheme(theme);
+    chrome.storage.local.set({ popupTheme: theme });
+  });
+  extensionPower.addEventListener('click', () => {
+    applyExtensionState(!extensionEnabled);
+    chrome.storage.local.set({ extensionEnabled });
+  });
+
+  function updateQuickTranscriptControls() {
+    quickTranscriptMode.disabled = !quickTranscriptEnabled.checked;
+    quickTranscriptGrouping.disabled = !quickTranscriptEnabled.checked;
+  }
+
+  function updateQuickPauseControls() {
+    quickPauseSeconds.disabled = !quickPauseEnabled.checked;
+    quickPauseMode.disabled = !quickPauseEnabled.checked;
+  }
 
   function showSettings(show) {
     mainView.hidden = show;
@@ -45,6 +146,20 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', () => showSettings(true));
   });
   closeSettingsButton.addEventListener('click', () => showSettings(false));
+  openSettingsShortcuts.addEventListener('click', () => {
+    showSettings(true);
+    const section = document.querySelector('[data-settings-section="shortcuts"]');
+    if (section) section.open = true;
+  });
+
+  document.querySelectorAll('[data-quick-expand]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const target = document.getElementById(button.getAttribute('aria-controls'));
+      const expanded = button.getAttribute('aria-expanded') !== 'true';
+      button.setAttribute('aria-expanded', String(expanded));
+      target.hidden = !expanded;
+    });
+  });
 
   resetPanelLayout.addEventListener('click', () => {
     chrome.storage.local.remove([
@@ -56,9 +171,42 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  const appearanceDefaults = {
+    transcriptPanelBackground: '#1e1e22', transcriptPanelTextColor: '#e4e4e7',
+    transcriptPanelFont: 'Inter, Roboto, Arial, sans-serif', transcriptPanelFontSize: 13.5,
+    transcriptPanelOpacity: 0.84,
+  };
+  function fillAppearance(stored) {
+    panelBackground.value = stored.transcriptPanelBackground;
+    panelTextColor.value = stored.transcriptPanelTextColor;
+    panelFont.value = stored.transcriptPanelFont;
+    panelFontSize.value = stored.transcriptPanelFontSize;
+    panelOpacity.value = stored.transcriptPanelOpacity;
+  }
+  chrome.storage.local.get(appearanceDefaults, fillAppearance);
+  panelBackground.addEventListener('input', () => chrome.storage.local.set({ transcriptPanelBackground: panelBackground.value }));
+  panelTextColor.addEventListener('input', () => chrome.storage.local.set({ transcriptPanelTextColor: panelTextColor.value }));
+  panelFont.addEventListener('change', () => chrome.storage.local.set({ transcriptPanelFont: panelFont.value }));
+  panelFontSize.addEventListener('change', () => chrome.storage.local.set({ transcriptPanelFontSize: Math.min(22, Math.max(10, Number(panelFontSize.value) || 13.5)) }));
+  panelOpacity.addEventListener('input', () => chrome.storage.local.set({ transcriptPanelOpacity: Number(panelOpacity.value) }));
+  resetPanelAppearance.addEventListener('click', () => {
+    chrome.storage.local.set(appearanceDefaults, () => {
+      fillAppearance(appearanceDefaults);
+      settingsStatus.textContent = 'Apariencia restaurada.';
+    });
+  });
+
   // Envía mensaje al tab activo
   async function sendSpeedToActiveTab(rate) {
+    if (!extensionEnabled) {
+      alert('La extensión está apagada. Enciéndela antes de cambiar la velocidad.');
+      return;
+    }
     rate = parseFloat(rate);
+    if (rate > 16) {
+      alert('No puedes usar una velocidad superior a 16×, ya que es el máximo permitido.');
+      return;
+    }
     if (isNaN(rate) || rate <= 0) {
       alert('Introduce una velocidad válida (> 0).');
       return;
@@ -133,26 +281,58 @@ document.addEventListener('DOMContentLoaded', () => {
     if (res.lastSpeed) speedInput.value = res.lastSpeed;
   });
 
-  chrome.storage.local.get({ transcriptEnabled: true, transcriptMode: 'full', transcriptGrouping: 'grouped' }, (res) => {
+  chrome.storage.local.get({ transcriptEnabled: true, transcriptMode: 'full', transcriptGrouping: 'grouped', transcriptPreferredLanguage: 'auto', transcriptAutoOpenNextVideo: true }, (res) => {
     transcriptEnabled.checked = res.transcriptEnabled;
+    quickTranscriptEnabled.checked = res.transcriptEnabled;
     transcriptMode.value = res.transcriptMode;
+    quickTranscriptMode.value = res.transcriptMode;
     transcriptGrouping.value = res.transcriptGrouping;
+    quickTranscriptGrouping.value = res.transcriptGrouping;
+    transcriptPreferredLanguage.value = res.transcriptPreferredLanguage;
+    transcriptAutoOpenNext.checked = res.transcriptAutoOpenNextVideo;
     transcriptMode.disabled = !res.transcriptEnabled;
     transcriptGrouping.disabled = !res.transcriptEnabled;
+    updateQuickTranscriptControls();
   });
 
   transcriptEnabled.addEventListener('change', () => {
+    quickTranscriptEnabled.checked = transcriptEnabled.checked;
+    updateQuickTranscriptControls();
     transcriptMode.disabled = !transcriptEnabled.checked;
     transcriptGrouping.disabled = !transcriptEnabled.checked;
     chrome.storage.local.set({ transcriptEnabled: transcriptEnabled.checked });
   });
 
   transcriptMode.addEventListener('change', () => {
+    quickTranscriptMode.value = transcriptMode.value;
     chrome.storage.local.set({ transcriptMode: transcriptMode.value });
   });
 
   transcriptGrouping.addEventListener('change', () => {
+    quickTranscriptGrouping.value = transcriptGrouping.value;
     chrome.storage.local.set({ transcriptGrouping: transcriptGrouping.value });
+  });
+  transcriptPreferredLanguage.addEventListener('change', () => {
+    chrome.storage.local.set({ transcriptPreferredLanguage: transcriptPreferredLanguage.value });
+  });
+  transcriptAutoOpenNext.addEventListener('change', () => {
+    chrome.storage.local.set({ transcriptAutoOpenNextVideo: transcriptAutoOpenNext.checked });
+  });
+
+  quickTranscriptEnabled.addEventListener('change', () => {
+    transcriptEnabled.checked = quickTranscriptEnabled.checked;
+    transcriptMode.disabled = !quickTranscriptEnabled.checked;
+    transcriptGrouping.disabled = !quickTranscriptEnabled.checked;
+    updateQuickTranscriptControls();
+    chrome.storage.local.set({ transcriptEnabled: quickTranscriptEnabled.checked });
+  });
+  quickTranscriptMode.addEventListener('change', () => {
+    transcriptMode.value = quickTranscriptMode.value;
+    chrome.storage.local.set({ transcriptMode: quickTranscriptMode.value });
+  });
+  quickTranscriptGrouping.addEventListener('change', () => {
+    transcriptGrouping.value = quickTranscriptGrouping.value;
+    chrome.storage.local.set({ transcriptGrouping: quickTranscriptGrouping.value });
   });
 
   function shortcutFromEvent(event) {
@@ -217,17 +397,170 @@ document.addEventListener('DOMContentLoaded', () => {
     finishShortcutCapture(pendingModifier);
   }
 
+  function finishPauseShortcutCapture(shortcut) {
+    capturedPauseShortcut = shortcut;
+    pendingPauseModifier = null;
+    pauseShortcutKey.textContent = shortcut.label;
+    document.removeEventListener('keydown', capturePauseKeyDown, true);
+    document.removeEventListener('keyup', capturePauseKeyUp, true);
+  }
+
+  function capturePauseKeyDown(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const modifierCodes = ['ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'ShiftLeft', 'ShiftRight', 'MetaLeft', 'MetaRight'];
+    const shortcut = shortcutFromEvent(event);
+    if (modifierCodes.includes(event.code)) {
+      pendingPauseModifier = shortcut;
+      pauseShortcutKey.textContent = `${shortcut.label} + …`;
+      return;
+    }
+    finishPauseShortcutCapture(shortcut);
+  }
+
+  function capturePauseKeyUp(event) {
+    if (!pendingPauseModifier || event.code !== pendingPauseModifier.code) return;
+    event.preventDefault();
+    event.stopPropagation();
+    finishPauseShortcutCapture(pendingPauseModifier);
+  }
+
+  function renderPauseShortcuts() {
+    pauseShortcutList.replaceChildren();
+    if (!pauseShortcuts.length) {
+      const empty = document.createElement('div');
+      empty.className = 'shortcut-empty';
+      empty.textContent = 'No hay atajos de pausa configurados.';
+      pauseShortcutList.appendChild(empty);
+      return;
+    }
+    pauseShortcuts.forEach((shortcut) => {
+      const item = document.createElement('div');
+      item.className = 'shortcut-item';
+      const chips = document.createElement('div');
+      chips.className = 'shortcut-chips';
+      const key = document.createElement('span');
+      key.className = 'shortcut-chip shortcut-chip--key';
+      key.textContent = shortcut.label;
+      const action = document.createElement('button');
+      action.className = 'shortcut-chip shortcut-chip--behavior';
+      action.textContent = shortcut.action === 'pause-rewind' ? 'Pausa + retroceso' : 'Pausa normal';
+      action.title = 'Cambiar acción';
+      action.addEventListener('click', () => {
+        shortcut.action = shortcut.action === 'pause-rewind' ? 'toggle' : 'pause-rewind';
+        if (shortcut.action === 'pause-rewind') {
+          shortcut.seconds = Number(shortcut.seconds) || 3;
+          shortcut.mode = shortcut.mode === 'scaled' ? 'scaled' : 'fixed';
+        }
+        chrome.storage.local.set({ pauseShortcuts });
+        renderPauseShortcuts();
+      });
+      chips.append(key, action);
+      if (shortcut.action === 'pause-rewind') {
+        const seconds = document.createElement('button');
+        seconds.className = 'shortcut-chip shortcut-chip--speed';
+        seconds.textContent = `${Number(shortcut.seconds) || 3}s`;
+        seconds.title = 'Cambiar segundos de retroceso';
+        seconds.addEventListener('click', () => {
+          const editor = document.createElement('input');
+          editor.className = 'shortcut-speed-editor';
+          editor.type = 'number';
+          editor.min = '0.1';
+          editor.step = '0.5';
+          editor.value = Number(shortcut.seconds) || 3;
+          seconds.replaceWith(editor);
+          editor.focus();
+          editor.select();
+          let saved = false;
+          const saveSeconds = () => {
+            if (saved) return;
+            saved = true;
+            const value = Number(editor.value);
+            if (Number.isFinite(value) && value > 0) shortcut.seconds = value;
+            chrome.storage.local.set({ pauseShortcuts });
+            renderPauseShortcuts();
+          };
+          editor.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') saveSeconds();
+            if (event.key === 'Escape') renderPauseShortcuts();
+          });
+          editor.addEventListener('blur', saveSeconds);
+        });
+        const mode = document.createElement('button');
+        mode.className = 'shortcut-chip shortcut-chip--behavior';
+        mode.textContent = shortcut.mode === 'scaled' ? 'Según velocidad' : 'Tiempo fijo';
+        mode.title = 'Cambiar cálculo del retroceso';
+        mode.addEventListener('click', () => {
+          shortcut.mode = shortcut.mode === 'scaled' ? 'fixed' : 'scaled';
+          chrome.storage.local.set({ pauseShortcuts });
+          renderPauseShortcuts();
+        });
+        chips.append(seconds, mode);
+      }
+      const remove = document.createElement('button');
+      remove.className = 'shortcut-remove';
+      remove.textContent = '×';
+      remove.title = 'Eliminar atajo de pausa';
+      remove.addEventListener('click', () => {
+        pauseShortcuts = pauseShortcuts.filter((candidate) => candidate.id !== shortcut.id);
+        chrome.storage.local.set({ pauseShortcuts });
+        renderPauseShortcuts();
+      });
+      item.append(chips, remove);
+      pauseShortcutList.appendChild(item);
+    });
+  }
+
+  function updateShortcutSummary() {
+    const active = speedShortcuts.filter((shortcut) => shortcut.enabled !== false).length;
+    quickShortcutsSummary.textContent = speedShortcuts.length
+      ? `${active} de ${speedShortcuts.length} ${speedShortcuts.length === 1 ? 'activo' : 'activos'}`
+      : 'Sin atajos configurados';
+  }
+
   function renderShortcuts() {
+    updateShortcutSummary();
     shortcutList.replaceChildren();
+    quickShortcutsList.replaceChildren();
     if (!speedShortcuts.length) {
       const empty = document.createElement('div');
       empty.className = 'shortcut-empty';
       empty.textContent = 'No hay atajos configurados.';
       shortcutList.appendChild(empty);
+      const quickEmpty = document.createElement('div');
+      quickEmpty.className = 'quick-shortcut-empty';
+      quickEmpty.textContent = 'No hay atajos configurados.';
+      quickShortcutsList.appendChild(quickEmpty);
       return;
     }
 
     speedShortcuts.forEach((shortcut) => {
+      const quickItem = document.createElement('div');
+      quickItem.className = 'quick-shortcut';
+      const quickInfo = document.createElement('div');
+      quickInfo.className = 'quick-shortcut__info';
+      const quickKey = document.createElement('strong');
+      quickKey.textContent = shortcut.label;
+      const quickDescription = document.createElement('span');
+      quickDescription.textContent = `${shortcut.speed}× · ${shortcut.behavior === 'hold' ? 'mientras pulsas' : 'permanente'}`;
+      quickInfo.append(quickKey, quickDescription);
+      const quickSwitch = document.createElement('label');
+      quickSwitch.className = 'switch';
+      const quickToggle = document.createElement('input');
+      quickToggle.type = 'checkbox';
+      quickToggle.checked = shortcut.enabled !== false;
+      quickToggle.setAttribute('aria-label', `${quickToggle.checked ? 'Desactivar' : 'Activar'} atajo ${shortcut.label}`);
+      const quickTrack = document.createElement('span');
+      quickToggle.addEventListener('change', () => {
+        shortcut.enabled = quickToggle.checked;
+        quickToggle.setAttribute('aria-label', `${quickToggle.checked ? 'Desactivar' : 'Activar'} atajo ${shortcut.label}`);
+        chrome.storage.local.set({ speedShortcuts });
+        updateShortcutSummary();
+      });
+      quickSwitch.append(quickToggle, quickTrack);
+      quickItem.append(quickInfo, quickSwitch);
+      quickShortcutsList.appendChild(quickItem);
+
       const item = document.createElement('div');
       item.className = 'shortcut-item';
       const chips = document.createElement('div');
@@ -254,6 +587,7 @@ document.addEventListener('DOMContentLoaded', () => {
         editor.className = 'shortcut-speed-editor';
         editor.type = 'number';
         editor.min = '0.1';
+        editor.max = '16';
         editor.step = '0.25';
         editor.value = shortcut.speed;
         speed.replaceWith(editor);
@@ -264,7 +598,9 @@ document.addEventListener('DOMContentLoaded', () => {
           if (saved) return;
           saved = true;
           const value = Number(editor.value);
-          if (Number.isFinite(value) && value > 0) {
+          if (value > 16) {
+            alert('No puedes asignar una velocidad superior a 16×.');
+          } else if (Number.isFinite(value) && value > 0) {
             shortcut.speed = value;
             chrome.storage.local.set({ speedShortcuts });
           }
@@ -312,12 +648,18 @@ document.addEventListener('DOMContentLoaded', () => {
     capturedShortcut = null;
     pendingModifier = null;
     shortcutKeyButton.textContent = 'Pulsa una tecla…';
+    document.removeEventListener('keydown', capturePauseKeyDown, true);
+    document.removeEventListener('keyup', capturePauseKeyUp, true);
     document.addEventListener('keydown', captureKeyDown, true);
     document.addEventListener('keyup', captureKeyUp, true);
   });
 
   shortcutAdd.addEventListener('click', () => {
     const speed = Number(shortcutSpeed.value);
+    if (speed > 16) {
+      alert('No puedes asignar una velocidad superior a 16×.');
+      return;
+    }
     if (!capturedShortcut || !Number.isFinite(speed) || speed <= 0) {
       alert('Asigna una tecla e introduce una velocidad válida.');
       return;
@@ -345,7 +687,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
   chrome.storage.local.get({ speedShortcuts: [] }, (stored) => {
     speedShortcuts = Array.isArray(stored.speedShortcuts) ? stored.speedShortcuts : [];
+    quickShortcutsSummary.textContent = speedShortcuts.length
+      ? `${speedShortcuts.length} ${speedShortcuts.length === 1 ? 'atajo configurado' : 'atajos configurados'}`
+      : 'Sin atajos configurados';
     renderShortcuts();
+  });
+
+  chrome.storage.local.get({ speedShortcutsEnabled: true }, (stored) => {
+    speedShortcutsEnabled.checked = stored.speedShortcutsEnabled;
+    quickShortcutsEnabled.checked = stored.speedShortcutsEnabled;
+  });
+  speedShortcutsEnabled.addEventListener('change', () => {
+    quickShortcutsEnabled.checked = speedShortcutsEnabled.checked;
+    chrome.storage.local.set({ speedShortcutsEnabled: speedShortcutsEnabled.checked });
+  });
+  quickShortcutsEnabled.addEventListener('change', () => {
+    speedShortcutsEnabled.checked = quickShortcutsEnabled.checked;
+    chrome.storage.local.set({ speedShortcutsEnabled: quickShortcutsEnabled.checked });
+  });
+
+  chrome.storage.local.get({ pauseShortcutsEnabled: true, pauseShortcuts: [] }, (stored) => {
+    pauseShortcutsEnabled.checked = stored.pauseShortcutsEnabled;
+    pauseShortcuts = Array.isArray(stored.pauseShortcuts) ? stored.pauseShortcuts : [];
+    renderPauseShortcuts();
+  });
+  pauseShortcutsEnabled.addEventListener('change', () => {
+    chrome.storage.local.set({ pauseShortcutsEnabled: pauseShortcutsEnabled.checked });
+  });
+  function updatePauseShortcutForm() {
+    pauseShortcutRewindOptions.hidden = pauseShortcutAction.value !== 'pause-rewind';
+  }
+  pauseShortcutAction.addEventListener('change', updatePauseShortcutForm);
+  updatePauseShortcutForm();
+  pauseShortcutKey.addEventListener('click', () => {
+    capturedPauseShortcut = null;
+    pendingPauseModifier = null;
+    pauseShortcutKey.textContent = 'Pulsa una tecla…';
+    document.removeEventListener('keydown', captureKeyDown, true);
+    document.removeEventListener('keyup', captureKeyUp, true);
+    document.addEventListener('keydown', capturePauseKeyDown, true);
+    document.addEventListener('keyup', capturePauseKeyUp, true);
+  });
+  pauseShortcutAdd.addEventListener('click', () => {
+    if (!capturedPauseShortcut) {
+      alert('Asigna una tecla para el atajo de pausa.');
+      return;
+    }
+    pauseShortcuts = pauseShortcuts.filter((shortcut) => shortcut.code !== capturedPauseShortcut.code ||
+      shortcut.ctrl !== capturedPauseShortcut.ctrl || shortcut.alt !== capturedPauseShortcut.alt ||
+      shortcut.shift !== capturedPauseShortcut.shift || shortcut.meta !== capturedPauseShortcut.meta);
+    pauseShortcuts.push({
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      ...capturedPauseShortcut,
+      action: pauseShortcutAction.value,
+      seconds: Math.max(0.1, Number(pauseShortcutSeconds.value) || 3),
+      mode: pauseShortcutMode.value === 'scaled' ? 'scaled' : 'fixed',
+    });
+    chrome.storage.local.set({ pauseShortcuts });
+    capturedPauseShortcut = null;
+    pauseShortcutKey.textContent = 'Asignar tecla';
+    renderPauseShortcuts();
   });
 
   function updatePauseRewindControls() {
@@ -359,22 +760,47 @@ document.addEventListener('DOMContentLoaded', () => {
     pauseRewindMode: 'fixed',
   }, (stored) => {
     pauseRewindEnabled.checked = stored.pauseRewindEnabled;
+    quickPauseEnabled.checked = stored.pauseRewindEnabled;
     pauseRewindSeconds.value = stored.pauseRewindSeconds;
+    quickPauseSeconds.value = stored.pauseRewindSeconds;
     pauseRewindMode.value = stored.pauseRewindMode;
+    quickPauseMode.value = stored.pauseRewindMode;
     updatePauseRewindControls();
+    updateQuickPauseControls();
   });
 
   pauseRewindEnabled.addEventListener('change', () => {
+    quickPauseEnabled.checked = pauseRewindEnabled.checked;
+    updateQuickPauseControls();
     updatePauseRewindControls();
     chrome.storage.local.set({ pauseRewindEnabled: pauseRewindEnabled.checked });
   });
   pauseRewindSeconds.addEventListener('change', () => {
     const seconds = Math.max(0.1, Number(pauseRewindSeconds.value) || 2);
     pauseRewindSeconds.value = seconds;
+    quickPauseSeconds.value = seconds;
     chrome.storage.local.set({ pauseRewindSeconds: seconds });
   });
   pauseRewindMode.addEventListener('change', () => {
+    quickPauseMode.value = pauseRewindMode.value;
     chrome.storage.local.set({ pauseRewindMode: pauseRewindMode.value });
+  });
+
+  quickPauseEnabled.addEventListener('change', () => {
+    pauseRewindEnabled.checked = quickPauseEnabled.checked;
+    updatePauseRewindControls();
+    updateQuickPauseControls();
+    chrome.storage.local.set({ pauseRewindEnabled: quickPauseEnabled.checked });
+  });
+  quickPauseSeconds.addEventListener('change', () => {
+    const seconds = Math.max(0.1, Number(quickPauseSeconds.value) || 2);
+    quickPauseSeconds.value = seconds;
+    pauseRewindSeconds.value = seconds;
+    chrome.storage.local.set({ pauseRewindSeconds: seconds });
+  });
+  quickPauseMode.addEventListener('change', () => {
+    pauseRewindMode.value = quickPauseMode.value;
+    chrome.storage.local.set({ pauseRewindMode: quickPauseMode.value });
   });
 
   function formatNoteTime(milliseconds) {
@@ -413,22 +839,67 @@ document.addEventListener('DOMContentLoaded', () => {
         time.href = noteLink(item);
         time.target = '_blank';
         time.textContent = formatNoteTime(item.startMs);
+        const edit = document.createElement('button');
+        edit.className = 'global-note__edit';
+        edit.textContent = 'Editar';
+        edit.setAttribute('aria-label', `Editar nota de ${formatNoteTime(item.startMs)}`);
         const remove = document.createElement('button');
         remove.textContent = 'Eliminar';
         remove.addEventListener('click', () => {
+          if (!window.confirm('¿Quieres eliminar esta nota? Esta acción no se puede deshacer.')) return;
           chrome.storage.local.set({ ytxSavedNotes: notes.filter((candidate) => candidate.id !== item.id) }, loadGlobalNotes);
         });
-        meta.append(time, remove);
+        remove.setAttribute('aria-label', `Eliminar nota de ${formatNoteTime(item.startMs)}`);
+        const metaActions = document.createElement('div');
+        metaActions.className = 'global-note__actions';
+        metaActions.append(edit, remove);
+        meta.append(time, metaActions);
         const text = document.createElement('div');
         text.className = 'global-note__text';
         text.textContent = item.text || 'Momento guardado';
         card.append(title, meta, text);
+        const note = document.createElement('div');
+        note.className = 'global-note__note';
+        note.textContent = item.note || '';
         if (item.note) {
-          const note = document.createElement('div');
-          note.className = 'global-note__note';
-          note.textContent = item.note;
           card.appendChild(note);
         }
+        edit.addEventListener('click', () => {
+          if (card.querySelector('.global-note__editor')) return;
+          const editor = document.createElement('textarea');
+          editor.className = 'global-note__editor';
+          editor.value = item.note || '';
+          editor.setAttribute('aria-label', 'Editar texto de la nota');
+          const actions = document.createElement('div');
+          actions.className = 'global-note__editor-actions';
+          const cancel = document.createElement('button');
+          cancel.className = 'secondary';
+          cancel.textContent = 'Cancelar';
+          const save = document.createElement('button');
+          save.className = 'primary';
+          save.textContent = 'Guardar';
+          actions.append(cancel, save);
+          card.append(editor, actions);
+          editor.focus();
+          const closeEditor = () => {
+            editor.remove();
+            actions.remove();
+            edit.focus();
+          };
+          cancel.addEventListener('click', closeEditor);
+          save.addEventListener('click', () => {
+            const updated = notes.map((candidate) => candidate.id === item.id
+              ? { ...candidate, note: editor.value.trim(), updatedAt: new Date().toISOString() }
+              : candidate);
+            chrome.storage.local.set({ ytxSavedNotes: updated }, loadGlobalNotes);
+          });
+          editor.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              closeEditor();
+            }
+          });
+        });
         globalNotesList.appendChild(card);
       });
     });
@@ -436,6 +907,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   globalNotesToggle.addEventListener('click', () => {
     globalNotes.hidden = !globalNotes.hidden;
+    globalNotesToggle.setAttribute('aria-expanded', String(!globalNotes.hidden));
     if (!globalNotes.hidden) loadGlobalNotes();
   });
 

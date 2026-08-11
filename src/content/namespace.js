@@ -2,9 +2,12 @@
   "use strict";
   const ytx = globalThis.__YTX || (globalThis.__YTX = {});
   ytx.state = ytx.state || {
-    settings: { enabled: true, mode: "full", grouping: "grouped" },
+    settings: { extensionEnabled: true, enabled: true, mode: "full", grouping: "grouped", preferredLanguage: "auto", autoOpenNextVideo: true },
+    dismissedVideoId: null,
+    appearance: { background: "#1e1e22", text: "#e4e4e7", font: "Inter, Roboto, Arial, sans-serif", fontSize: 13.5, opacity: 0.84 },
     ui: null,
     transcript: null,
+    transcriptTracks: [],
     displayBlocks: [],
     syncTimer: null,
     renderedBlockCount: 0,

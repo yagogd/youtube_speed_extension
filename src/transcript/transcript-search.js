@@ -140,9 +140,13 @@
       refresh(true);
     };
     const onKeyDown = (event) => {
-      if (event.key !== "Enter") return;
-      event.preventDefault();
-      move(event.shiftKey ? -1 : 1);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        move(event.shiftKey ? -1 : 1);
+      }
     };
     const onPrevious = () => move(-1);
     const onNext = () => move(1);
@@ -151,10 +155,29 @@
       ui.searchInput.value = "";
       state.search.query = "";
       refresh(true);
+      ui.searchToggle.setAttribute("aria-expanded", "false");
+      ui.searchToggle.focus();
     };
     const onToggle = () => {
       ui.panel.classList.toggle("ytx-panel--search-open");
-      if (ui.panel.classList.contains("ytx-panel--search-open")) {
+      const open = ui.panel.classList.contains("ytx-panel--search-open");
+      ui.searchToggle.setAttribute("aria-expanded", String(open));
+      if (open) {
+        ui.searchInput.focus();
+        ui.searchInput.select();
+      }
+    };
+    const onPanelKeyDown = (event) => {
+      if (event.key === "Escape" && ui.panel.classList.contains("ytx-panel--search-open") &&
+          !ui.panel.classList.contains("ytx-panel--note-editor-open")) {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLocaleLowerCase("es") !== "f") return;
+      event.preventDefault();
+      if (!ui.panel.classList.contains("ytx-panel--search-open")) onToggle();
+      else {
         ui.searchInput.focus();
         ui.searchInput.select();
       }
@@ -166,6 +189,7 @@
     ui.searchNext.addEventListener("click", onNext);
     ui.searchClose.addEventListener("click", onClose);
     ui.searchToggle.addEventListener("click", onToggle);
+    ui.panel.addEventListener("keydown", onPanelKeyDown);
     return () => {
       ui.searchInput.removeEventListener("input", onInput);
       ui.searchInput.removeEventListener("keydown", onKeyDown);
@@ -173,6 +197,7 @@
       ui.searchNext.removeEventListener("click", onNext);
       ui.searchClose.removeEventListener("click", onClose);
       ui.searchToggle.removeEventListener("click", onToggle);
+      ui.panel.removeEventListener("keydown", onPanelKeyDown);
     };
   }
 

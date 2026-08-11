@@ -4,6 +4,7 @@
   const state = ytx.state;
   const STORAGE_KEY = "ytxSavedNotes";
   let editorDraft = null;
+  let editorReturnFocus = null;
 
   function videoId() {
     return new URL(location.href).searchParams.get("v") || "";
@@ -57,6 +58,20 @@
     return item;
   }
 
+  async function update(id, draft) {
+    const all = await readAll();
+    const index = all.findIndex((item) => item.id === id);
+    if (index === -1) return null;
+    all[index] = {
+      ...all[index],
+      note: String(draft.note || "").trim(),
+      updatedAt: new Date().toISOString(),
+    };
+    await writeAll(all);
+    await loadCurrent();
+    return all[index];
+  }
+
   async function remove(id) {
     const all = await readAll();
     await writeAll(all.filter((item) => item.id !== id));
@@ -79,6 +94,7 @@
     const ui = state.ui;
     if (!ui) return;
     editorDraft = draft;
+    editorReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     ui.noteEditorTime.textContent = ytx.formatTime(draft.startMs);
     ui.noteEditorText.textContent = draft.text || "Marcador sin texto";
     ui.noteEditorInput.value = draft.note || "";
@@ -135,10 +151,20 @@
         }
         const deleteButton = document.createElement("button");
         deleteButton.className = "ytx-note-item__delete";
-        deleteButton.textContent = "×";
-        deleteButton.title = "Eliminar";
-        deleteButton.addEventListener("click", () => remove(item.id));
-        row.append(jump, body, deleteButton);
+        ytx.panel.setButtonIcon(deleteButton, "trash");
+        ytx.panel.labelButton(deleteButton, "Eliminar nota");
+        deleteButton.addEventListener("click", () => {
+          if (window.confirm("¿Quieres eliminar esta nota? Esta acción no se puede deshacer.")) remove(item.id);
+        });
+        const editButton = document.createElement("button");
+        editButton.className = "ytx-note-item__edit";
+        ytx.panel.setButtonIcon(editButton, "edit");
+        ytx.panel.labelButton(editButton, "Editar nota");
+        editButton.addEventListener("click", () => openEditor({ ...item, editingId: item.id }));
+        const actions = document.createElement("div");
+        actions.className = "ytx-note-item__actions";
+        actions.append(editButton, deleteButton);
+        row.append(jump, body, actions);
         ui.notesList.appendChild(row);
       });
   }
@@ -151,7 +177,10 @@
       const saved = block && state.savedNotes.some((item) => Math.abs(item.startMs - block.startMs) < 500);
       row.classList.toggle("ytx-transcript-row--saved", Boolean(saved));
       const favorite = row.querySelector(".ytx-row-action--favorite");
-      if (favorite) favorite.textContent = saved ? "★" : "☆";
+      if (favorite) {
+        favorite.setAttribute("aria-pressed", String(Boolean(saved)));
+        ytx.panel.labelButton(favorite, saved ? "Quitar de favoritos" : "Guardar en favoritos");
+      }
     });
   }
 
@@ -160,14 +189,15 @@
     actions.className = "ytx-row-actions";
     const copy = document.createElement("button");
     copy.className = "ytx-row-action";
-    copy.textContent = "⧉";
-    copy.title = "Copiar fragmento";
+    ytx.panel.setButtonIcon(copy, "copy");
+    ytx.panel.labelButton(copy, "Copiar fragmento");
     copy.addEventListener("click", () => navigator.clipboard.writeText(selectedTextInside(row, block.text)));
 
     const favorite = document.createElement("button");
     favorite.className = "ytx-row-action ytx-row-action--favorite";
-    favorite.textContent = "☆";
-    favorite.title = "Guardar en favoritos";
+    ytx.panel.setButtonIcon(favorite, "star");
+    ytx.panel.labelButton(favorite, "Guardar en favoritos");
+    favorite.setAttribute("aria-pressed", "false");
     favorite.addEventListener("click", () => {
       const existing = state.savedNotes.find((item) => Math.abs(item.startMs - block.startMs) < 500);
       if (existing) remove(existing.id);
@@ -176,8 +206,8 @@
 
     const note = document.createElement("button");
     note.className = "ytx-row-action";
-    note.textContent = "✎";
-    note.title = "Añadir nota";
+    ytx.panel.setButtonIcon(note, "edit");
+    ytx.panel.labelButton(note, "Añadir nota");
     note.addEventListener("click", () => openEditor({
       ...block,
       type: "note",
@@ -192,15 +222,25 @@
     const onBookmark = () => openEditor(currentMomentDraft());
     const onToggleNotes = () => {
       ui.panel.classList.toggle("ytx-panel--notes-open");
+      ui.notesToggle.setAttribute("aria-expanded", String(ui.panel.classList.contains("ytx-panel--notes-open")));
       renderDrawer();
     };
     const onCancel = () => {
       editorDraft = null;
       ui.panel.classList.remove("ytx-panel--note-editor-open");
+      editorReturnFocus?.focus();
+      editorReturnFocus = null;
     };
     const onSave = async () => {
       if (!editorDraft) return;
-      await save({ ...editorDraft, note: ui.noteEditorInput.value });
+      if (editorDraft.editingId) await update(editorDraft.editingId, { note: ui.noteEditorInput.value });
+      else await save({ ...editorDraft, note: ui.noteEditorInput.value });
+      onCancel();
+    };
+    const onEditorKeyDown = (event) => {
+      if (event.key !== "Escape" || !ui.panel.classList.contains("ytx-panel--note-editor-open")) return;
+      event.preventDefault();
+      event.stopPropagation();
       onCancel();
     };
     const onStorageChanged = (changes, area) => {
@@ -210,6 +250,7 @@
     ui.notesToggle.addEventListener("click", onToggleNotes);
     ui.noteEditorCancel.addEventListener("click", onCancel);
     ui.noteEditorSave.addEventListener("click", onSave);
+    ui.panel.addEventListener("keydown", onEditorKeyDown);
     chrome.storage.onChanged.addListener(onStorageChanged);
     loadCurrent();
     return () => {
@@ -217,9 +258,10 @@
       ui.notesToggle.removeEventListener("click", onToggleNotes);
       ui.noteEditorCancel.removeEventListener("click", onCancel);
       ui.noteEditorSave.removeEventListener("click", onSave);
+      ui.panel.removeEventListener("keydown", onEditorKeyDown);
       chrome.storage.onChanged.removeListener(onStorageChanged);
     };
   }
 
-  ytx.notes = { attach, loadCurrent, save, remove, createBlockActions, refreshMarkers };
+  ytx.notes = { attach, loadCurrent, save, update, remove, createBlockActions, refreshMarkers };
 })();
