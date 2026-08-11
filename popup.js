@@ -43,14 +43,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const extensionPower = document.getElementById('extension-power');
   const extensionStatus = document.getElementById('extension-status');
   const speedInput = document.getElementById('speed');
-  const applyBtn = document.getElementById('apply');
-  const resetBtn = document.getElementById('reset');
+  const speedSlider = document.getElementById('speed-slider');
+  const speedDown = document.getElementById('speed-down');
+  const speedUp = document.getElementById('speed-up');
   const presets = document.querySelectorAll('.preset');
   const transcriptEnabled = document.getElementById('transcript-enabled');
   const transcriptMode = document.getElementById('transcript-mode');
   const transcriptGrouping = document.getElementById('transcript-grouping');
   const transcriptPreferredLanguage = document.getElementById('transcript-preferred-language');
   const transcriptAutoOpenNext = document.getElementById('transcript-auto-open-next');
+  const continuitySettings = document.getElementById('continuity-settings');
+  const rememberPlaybackSpeed = document.getElementById('remember-playback-speed');
+  const rememberPanelLayout = document.getElementById('remember-panel-layout');
   const quickTranscriptEnabled = document.getElementById('quick-transcript-enabled');
   const quickTranscriptMode = document.getElementById('quick-transcript-mode');
   const quickTranscriptGrouping = document.getElementById('quick-transcript-grouping');
@@ -84,6 +88,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const quickPauseEnabled = document.getElementById('quick-pause-enabled');
   const quickPauseSeconds = document.getElementById('quick-pause-seconds');
   const quickPauseMode = document.getElementById('quick-pause-mode');
+  const quickPauseShortcutsEnabled = document.getElementById('quick-pause-shortcuts-enabled');
+  const quickPauseShortcutsSummary = document.getElementById('quick-pause-shortcuts-summary');
+  const quickPauseShortcutsList = document.getElementById('quick-pause-shortcuts-list');
+  const openSettingsPauseShortcuts = document.getElementById('open-settings-pause-shortcuts');
   let speedShortcuts = [];
   let capturedShortcut = null;
   let pendingModifier = null;
@@ -92,6 +100,44 @@ document.addEventListener('DOMContentLoaded', () => {
   let capturedPauseShortcut = null;
   let pendingPauseModifier = null;
   let extensionEnabled = true;
+
+  const autoOpenRow = transcriptAutoOpenNext.closest('.toggle');
+  if (autoOpenRow) continuitySettings.appendChild(autoOpenRow);
+
+  const shortcutDetails = shortcutList.closest('details');
+  const shortcutSectionTitle = shortcutDetails?.querySelector('.section-title strong');
+  const shortcutSectionCopy = shortcutDetails?.querySelector('.section-title span');
+  if (shortcutSectionTitle) shortcutSectionTitle.textContent = 'Atajos de teclado';
+  if (shortcutSectionCopy) shortcutSectionCopy.textContent = 'Velocidad, pausa y retroceso';
+  shortcutList.after(pauseShortcutList);
+
+  const shortcutCreateRow = shortcutKeyButton.closest('.shortcut-create-row');
+  shortcutCreateRow.classList.add('unified-shortcut-row');
+  const shortcutType = document.createElement('select');
+  shortcutType.id = 'shortcut-type';
+  shortcutType.setAttribute('aria-label', 'Tipo de atajo');
+  shortcutType.innerHTML = '<option value="speed">Velocidad</option><option value="pause">Pausa</option><option value="pause-rewind">Pausa + retroceso</option>';
+  shortcutCreateRow.insertBefore(shortcutType, shortcutSpeed);
+  pauseShortcutSeconds.classList.add('shortcut-extra');
+  pauseShortcutSeconds.setAttribute('aria-label', 'Segundos de retroceso');
+  pauseShortcutMode.classList.add('shortcut-extra');
+  pauseShortcutMode.setAttribute('aria-label', 'Cálculo del retroceso');
+  pauseShortcutMode.options[0].textContent = 'Fijo';
+  pauseShortcutMode.options[1].textContent = '× velocidad';
+  shortcutCreateRow.insertBefore(pauseShortcutSeconds, shortcutAdd);
+  shortcutCreateRow.insertBefore(pauseShortcutMode, shortcutAdd);
+
+  function updateUnifiedShortcutForm() {
+    const speedType = shortcutType.value === 'speed';
+    const rewindType = shortcutType.value === 'pause-rewind';
+    shortcutCreateRow.dataset.type = shortcutType.value;
+    shortcutSpeed.hidden = !speedType;
+    shortcutBehavior.hidden = !speedType;
+    pauseShortcutSeconds.hidden = !rewindType;
+    pauseShortcutMode.hidden = !rewindType;
+  }
+  shortcutType.addEventListener('change', updateUnifiedShortcutForm);
+  updateUnifiedShortcutForm();
 
   function applyPopupTheme(theme) {
     const light = theme === 'light';
@@ -104,11 +150,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function applyExtensionState(enabled) {
     extensionEnabled = enabled;
     mainView.classList.toggle('extension-off', !enabled);
+    [mainView.querySelector('.content > .card:first-child'), mainView.querySelector('.feature-list')]
+      .forEach((section) => section?.setAttribute('aria-hidden', String(!enabled)));
     extensionPower.setAttribute('aria-pressed', String(enabled));
     extensionPower.title = enabled ? 'Apagar extensión' : 'Encender extensión';
     extensionPower.setAttribute('aria-label', extensionPower.title);
     extensionStatus.textContent = enabled ? 'Control rápido' : 'Extensión apagada';
-    [speedInput, applyBtn, resetBtn, ...presets, quickTranscriptEnabled,
+    [speedInput, speedSlider, speedDown, speedUp, ...presets, quickTranscriptEnabled,
       quickPauseEnabled, quickShortcutsEnabled].forEach((control) => { control.disabled = !enabled; });
   }
 
@@ -132,8 +180,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function updateQuickPauseControls() {
-    quickPauseSeconds.disabled = !quickPauseEnabled.checked;
-    quickPauseMode.disabled = !quickPauseEnabled.checked;
+    quickPauseSeconds.disabled = false;
+    quickPauseMode.disabled = false;
   }
 
   function showSettings(show) {
@@ -149,6 +197,11 @@ document.addEventListener('DOMContentLoaded', () => {
   openSettingsShortcuts.addEventListener('click', () => {
     showSettings(true);
     const section = document.querySelector('[data-settings-section="shortcuts"]');
+    if (section) section.open = true;
+  });
+  openSettingsPauseShortcuts.addEventListener('click', () => {
+    showSettings(true);
+    const section = pauseShortcutList.closest('details');
     if (section) section.open = true;
   });
 
@@ -194,6 +247,20 @@ document.addEventListener('DOMContentLoaded', () => {
       fillAppearance(appearanceDefaults);
       settingsStatus.textContent = 'Apariencia restaurada.';
     });
+  });
+
+  chrome.storage.local.get({ rememberPlaybackSpeed: true, transcriptRememberLayout: true }, (stored) => {
+    rememberPlaybackSpeed.checked = stored.rememberPlaybackSpeed !== false;
+    rememberPanelLayout.checked = stored.transcriptRememberLayout !== false;
+  });
+  rememberPlaybackSpeed.addEventListener('change', () => {
+    chrome.storage.local.set({ rememberPlaybackSpeed: rememberPlaybackSpeed.checked });
+  });
+  rememberPanelLayout.addEventListener('change', () => {
+    chrome.storage.local.set({ transcriptRememberLayout: rememberPanelLayout.checked });
+    if (!rememberPanelLayout.checked) {
+      chrome.storage.local.remove(['transcriptPanelGeometry', 'transcriptHeaderCollapsed']);
+    }
   });
 
   // Envía mensaje al tab activo
@@ -252,36 +319,49 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  applyBtn.addEventListener('click', () => {
-    sendSpeedToActiveTab(speedInput.value);
-  });
+  function setSpeedControls(value, apply = false) {
+    const rate = Math.min(16, Math.max(0.1, Number(value) || 1));
+    const formatted = Number(rate.toFixed(2));
+    speedInput.value = formatted;
+    speedSlider.value = formatted;
+    presets.forEach((preset) => {
+      const selected = Math.abs(Number(preset.dataset.speed) - formatted) < 0.001;
+      preset.classList.toggle('is-active', selected);
+      preset.setAttribute('aria-pressed', String(selected));
+    });
+    if (apply) sendSpeedToActiveTab(formatted);
+  }
 
-  resetBtn.addEventListener('click', () => {
-    speedInput.value = 1;
-    sendSpeedToActiveTab(1);
-  });
+  speedSlider.addEventListener('input', () => setSpeedControls(speedSlider.value));
+  speedSlider.addEventListener('change', () => setSpeedControls(speedSlider.value, true));
+  speedDown.addEventListener('click', () => setSpeedControls(Number(speedInput.value) - 0.25, true));
+  speedUp.addEventListener('click', () => setSpeedControls(Number(speedInput.value) + 0.25, true));
 
   // Detectar tecla Enter en el campo de velocidad
   speedInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
       event.preventDefault(); // evita que se envíe el formulario
-      sendSpeedToActiveTab(speedInput.value);
+      setSpeedControls(speedInput.value, true);
     }
   });
+  speedInput.addEventListener('change', () => setSpeedControls(speedInput.value, true));
 
   presets.forEach(btn => {
     btn.addEventListener('click', (e) => {
-      speedInput.value = e.target.textContent.trim();
-      sendSpeedToActiveTab(speedInput.value);
+      setSpeedControls(e.currentTarget.dataset.speed, true);
     });
   });
 
   // cargar último speed guardado
   chrome.storage.local.get(['lastSpeed'], (res) => {
-    if (res.lastSpeed) speedInput.value = res.lastSpeed;
+    setSpeedControls(res.lastSpeed || 1);
   });
 
-  chrome.storage.local.get({ transcriptEnabled: true, transcriptMode: 'full', transcriptGrouping: 'grouped', transcriptPreferredLanguage: 'auto', transcriptAutoOpenNextVideo: true }, (res) => {
+  chrome.storage.local.get({ transcriptEnabled: true, transcriptMode: 'full', transcriptGrouping: 'sentences', transcriptPreferredLanguage: 'auto', transcriptAutoOpenNextVideo: true }, (res) => {
+    if (res.transcriptGrouping === 'grouped') {
+      res.transcriptGrouping = 'sentences';
+      chrome.storage.local.set({ transcriptGrouping: 'sentences' });
+    }
     transcriptEnabled.checked = res.transcriptEnabled;
     quickTranscriptEnabled.checked = res.transcriptEnabled;
     transcriptMode.value = res.transcriptMode;
@@ -425,16 +505,57 @@ document.addEventListener('DOMContentLoaded', () => {
     finishPauseShortcutCapture(pendingPauseModifier);
   }
 
+  function updatePauseShortcutSummary() {
+    const active = pauseShortcuts.filter((shortcut) => shortcut.enabled !== false).length;
+    quickPauseShortcutsSummary.textContent = pauseShortcuts.length
+      ? `${active} de ${pauseShortcuts.length} ${pauseShortcuts.length === 1 ? 'activo' : 'activos'}`
+      : 'Sin atajos configurados';
+  }
+
   function renderPauseShortcuts() {
+    updatePauseShortcutSummary();
     pauseShortcutList.replaceChildren();
+    quickPauseShortcutsList.replaceChildren();
     if (!pauseShortcuts.length) {
       const empty = document.createElement('div');
       empty.className = 'shortcut-empty';
       empty.textContent = 'No hay atajos de pausa configurados.';
-      pauseShortcutList.appendChild(empty);
+      if (!speedShortcuts.length) pauseShortcutList.appendChild(empty);
+      const quickEmpty = empty.cloneNode(true);
+      quickEmpty.className = 'quick-shortcut-empty';
+      quickPauseShortcutsList.appendChild(quickEmpty);
+      renderShortcuts();
       return;
     }
     pauseShortcuts.forEach((shortcut) => {
+      const quickItem = document.createElement('div');
+      quickItem.className = 'quick-shortcut';
+      const quickInfo = document.createElement('div');
+      quickInfo.className = 'quick-shortcut__info';
+      const quickKey = document.createElement('strong');
+      quickKey.textContent = shortcut.label;
+      const quickDescription = document.createElement('span');
+      quickDescription.textContent = shortcut.action === 'pause-rewind'
+        ? `${Number(shortcut.seconds) || 3}s ${shortcut.mode === 'scaled' ? 'por velocidad' : 'fijos'}`
+        : 'Pausa normal';
+      quickInfo.append(quickKey, quickDescription);
+      const quickSwitch = document.createElement('label');
+      quickSwitch.className = 'switch';
+      const quickToggle = document.createElement('input');
+      quickToggle.type = 'checkbox';
+      quickToggle.checked = shortcut.enabled !== false;
+      quickToggle.setAttribute('aria-label', `${quickToggle.checked ? 'Desactivar' : 'Activar'} atajo ${shortcut.label}`);
+      const quickTrack = document.createElement('span');
+      quickToggle.addEventListener('change', () => {
+        shortcut.enabled = quickToggle.checked;
+        quickToggle.setAttribute('aria-label', `${quickToggle.checked ? 'Desactivar' : 'Activar'} atajo ${shortcut.label}`);
+        chrome.storage.local.set({ pauseShortcuts });
+        updatePauseShortcutSummary();
+      });
+      quickSwitch.append(quickToggle, quickTrack);
+      quickItem.append(quickInfo, quickSwitch);
+      quickPauseShortcutsList.appendChild(quickItem);
+
       const item = document.createElement('div');
       item.className = 'shortcut-item';
       const chips = document.createElement('div');
@@ -509,6 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
       item.append(chips, remove);
       pauseShortcutList.appendChild(item);
     });
+    renderShortcuts();
   }
 
   function updateShortcutSummary() {
@@ -523,10 +645,12 @@ document.addEventListener('DOMContentLoaded', () => {
     shortcutList.replaceChildren();
     quickShortcutsList.replaceChildren();
     if (!speedShortcuts.length) {
-      const empty = document.createElement('div');
-      empty.className = 'shortcut-empty';
-      empty.textContent = 'No hay atajos configurados.';
-      shortcutList.appendChild(empty);
+      if (!pauseShortcuts.length) {
+        const empty = document.createElement('div');
+        empty.className = 'shortcut-empty';
+        empty.textContent = 'No hay atajos configurados.';
+        shortcutList.appendChild(empty);
+      }
       const quickEmpty = document.createElement('div');
       quickEmpty.className = 'quick-shortcut-empty';
       quickEmpty.textContent = 'No hay atajos configurados.';
@@ -639,8 +763,23 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   shortcutSettingsToggle.addEventListener('click', () => {
-    shortcutSettings.hidden = !shortcutSettings.hidden;
-    shortcutSettingsToggle.textContent = shortcutSettings.hidden ? 'Añadir un atajo' : 'Cancelar';
+    const opening = shortcutSettings.hidden;
+    if (opening) {
+      shortcutSettings.hidden = false;
+      shortcutSettingsToggle.textContent = 'Cancelar';
+      shortcutSettings.appendChild(shortcutSettingsToggle);
+    } else {
+      shortcutSettings.hidden = true;
+      shortcutSettingsToggle.textContent = 'Añadir un atajo';
+      shortcutSettings.parentElement.insertBefore(shortcutSettingsToggle, shortcutSettings);
+    }
+  });
+
+  shortcutBehavior.addEventListener('click', () => {
+    const hold = shortcutBehavior.value !== 'hold';
+    shortcutBehavior.value = hold ? 'hold' : 'permanent';
+    shortcutBehavior.innerHTML = hold ? 'Mientras<br>pulsas' : 'Permanente';
+    shortcutBehavior.setAttribute('aria-label', `Comportamiento: ${hold ? 'mientras pulsas' : 'permanente'}`);
   });
 
   shortcutKeyButton.addEventListener('click', () => {
@@ -656,33 +795,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
   shortcutAdd.addEventListener('click', () => {
     const speed = Number(shortcutSpeed.value);
-    if (speed > 16) {
+    if (shortcutType.value === 'speed' && speed > 16) {
       alert('No puedes asignar una velocidad superior a 16×.');
       return;
     }
-    if (!capturedShortcut || !Number.isFinite(speed) || speed <= 0) {
-      alert('Asigna una tecla e introduce una velocidad válida.');
+    if (!capturedShortcut || (shortcutType.value === 'speed' && (!Number.isFinite(speed) || speed <= 0))) {
+      alert(shortcutType.value === 'speed' ? 'Asigna una tecla e introduce una velocidad válida.' : 'Asigna una tecla.');
       return;
     }
     const signature = JSON.stringify(capturedShortcut);
-    speedShortcuts = speedShortcuts.filter((shortcut) => JSON.stringify({
+    const sameShortcut = (shortcut) => JSON.stringify({
       code: shortcut.code,
       ctrl: shortcut.ctrl,
       alt: shortcut.alt,
       shift: shortcut.shift,
       meta: shortcut.meta,
       label: shortcut.label,
-    }) !== signature);
-    speedShortcuts.push({
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      ...capturedShortcut,
-      speed,
-      behavior: shortcutBehavior.value,
-    });
-    chrome.storage.local.set({ speedShortcuts });
+    }) === signature;
+    speedShortcuts = speedShortcuts.filter((shortcut) => !sameShortcut(shortcut));
+    pauseShortcuts = pauseShortcuts.filter((shortcut) => !sameShortcut(shortcut));
+    if (shortcutType.value === 'speed') {
+      speedShortcuts.push({
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        ...capturedShortcut,
+        speed,
+        behavior: shortcutBehavior.value,
+      });
+      chrome.storage.local.set({ speedShortcuts, pauseShortcuts });
+    } else {
+      pauseShortcuts.push({
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        ...capturedShortcut,
+        action: shortcutType.value === 'pause-rewind' ? 'pause-rewind' : 'toggle',
+        seconds: normalizePauseSeconds(pauseShortcutSeconds.value),
+        mode: pauseShortcutMode.value === 'scaled' ? 'scaled' : 'fixed',
+      });
+      chrome.storage.local.set({ speedShortcuts, pauseShortcuts });
+    }
     capturedShortcut = null;
     shortcutKeyButton.textContent = 'Asignar tecla';
     renderShortcuts();
+    renderPauseShortcuts();
   });
 
   chrome.storage.local.get({ speedShortcuts: [] }, (stored) => {
@@ -693,13 +846,18 @@ document.addEventListener('DOMContentLoaded', () => {
     renderShortcuts();
   });
 
-  chrome.storage.local.get({ speedShortcutsEnabled: true }, (stored) => {
-    speedShortcutsEnabled.checked = stored.speedShortcutsEnabled;
+  chrome.storage.local.get({ speedShortcutsEnabled: true, pauseShortcutsEnabled: true }, (stored) => {
+    speedShortcutsEnabled.checked = stored.speedShortcutsEnabled && stored.pauseShortcutsEnabled;
     quickShortcutsEnabled.checked = stored.speedShortcutsEnabled;
   });
   speedShortcutsEnabled.addEventListener('change', () => {
     quickShortcutsEnabled.checked = speedShortcutsEnabled.checked;
-    chrome.storage.local.set({ speedShortcutsEnabled: speedShortcutsEnabled.checked });
+    quickPauseShortcutsEnabled.checked = speedShortcutsEnabled.checked;
+    pauseShortcutsEnabled.checked = speedShortcutsEnabled.checked;
+    chrome.storage.local.set({
+      speedShortcutsEnabled: speedShortcutsEnabled.checked,
+      pauseShortcutsEnabled: speedShortcutsEnabled.checked,
+    });
   });
   quickShortcutsEnabled.addEventListener('change', () => {
     speedShortcutsEnabled.checked = quickShortcutsEnabled.checked;
@@ -708,11 +866,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   chrome.storage.local.get({ pauseShortcutsEnabled: true, pauseShortcuts: [] }, (stored) => {
     pauseShortcutsEnabled.checked = stored.pauseShortcutsEnabled;
+    quickPauseShortcutsEnabled.checked = stored.pauseShortcutsEnabled;
     pauseShortcuts = Array.isArray(stored.pauseShortcuts) ? stored.pauseShortcuts : [];
     renderPauseShortcuts();
   });
   pauseShortcutsEnabled.addEventListener('change', () => {
+    quickPauseShortcutsEnabled.checked = pauseShortcutsEnabled.checked;
     chrome.storage.local.set({ pauseShortcutsEnabled: pauseShortcutsEnabled.checked });
+  });
+  quickPauseShortcutsEnabled.addEventListener('change', () => {
+    pauseShortcutsEnabled.checked = quickPauseShortcutsEnabled.checked;
+    chrome.storage.local.set({ pauseShortcutsEnabled: quickPauseShortcutsEnabled.checked });
   });
   function updatePauseShortcutForm() {
     pauseShortcutRewindOptions.hidden = pauseShortcutAction.value !== 'pause-rewind';
@@ -754,6 +918,13 @@ document.addEventListener('DOMContentLoaded', () => {
     pauseRewindMode.disabled = !pauseRewindEnabled.checked;
   }
 
+  function normalizePauseSeconds(value) {
+    return Math.max(0.5, Math.round((Number(value) || 2) * 2) / 2);
+  }
+
+  pauseRewindSeconds.min = '0.5';
+  quickPauseSeconds.min = '0.5';
+
   chrome.storage.local.get({
     pauseRewindEnabled: false,
     pauseRewindSeconds: 2,
@@ -761,8 +932,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }, (stored) => {
     pauseRewindEnabled.checked = stored.pauseRewindEnabled;
     quickPauseEnabled.checked = stored.pauseRewindEnabled;
-    pauseRewindSeconds.value = stored.pauseRewindSeconds;
-    quickPauseSeconds.value = stored.pauseRewindSeconds;
+    const normalizedSeconds = normalizePauseSeconds(stored.pauseRewindSeconds);
+    pauseRewindSeconds.value = normalizedSeconds;
+    quickPauseSeconds.value = normalizedSeconds;
+    if (normalizedSeconds !== Number(stored.pauseRewindSeconds)) {
+      chrome.storage.local.set({ pauseRewindSeconds: normalizedSeconds });
+    }
     pauseRewindMode.value = stored.pauseRewindMode;
     quickPauseMode.value = stored.pauseRewindMode;
     updatePauseRewindControls();
@@ -776,7 +951,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.local.set({ pauseRewindEnabled: pauseRewindEnabled.checked });
   });
   pauseRewindSeconds.addEventListener('change', () => {
-    const seconds = Math.max(0.1, Number(pauseRewindSeconds.value) || 2);
+    const seconds = normalizePauseSeconds(pauseRewindSeconds.value);
     pauseRewindSeconds.value = seconds;
     quickPauseSeconds.value = seconds;
     chrome.storage.local.set({ pauseRewindSeconds: seconds });
@@ -793,7 +968,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.local.set({ pauseRewindEnabled: quickPauseEnabled.checked });
   });
   quickPauseSeconds.addEventListener('change', () => {
-    const seconds = Math.max(0.1, Number(quickPauseSeconds.value) || 2);
+    const seconds = normalizePauseSeconds(quickPauseSeconds.value);
     quickPauseSeconds.value = seconds;
     pauseRewindSeconds.value = seconds;
     chrome.storage.local.set({ pauseRewindSeconds: seconds });

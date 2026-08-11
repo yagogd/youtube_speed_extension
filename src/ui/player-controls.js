@@ -556,7 +556,9 @@
     down.addEventListener("click", () => setSpeed(Number(speedInput.value) - 0.25));
     up.addEventListener("click", () => setSpeed(Number(speedInput.value) + 0.25));
     speedSlider.addEventListener("input", () => setSpeed(speedSlider.value));
-    chrome.storage.local.get({ lastSpeed: 1 }, (stored) => setSpeed(stored.lastSpeed || 1));
+    chrome.storage.local.get({ lastSpeed: 1, rememberPlaybackSpeed: true }, (stored) => {
+      setSpeed(stored.rememberPlaybackSpeed === false ? 1 : (stored.lastSpeed || 1));
+    });
     updateTranscriptButton();
     updateNotesButton();
     refreshNoteMarkers();

@@ -9,6 +9,7 @@
   let shortcutsEnabled = true;
   let pauseShortcutsEnabled = true;
   let pauseShortcuts = [];
+  let rememberPlaybackSpeed = true;
   let suppressNextAutomaticRewind = false;
   let heldShortcut = null;
   let retryTimer = null;
@@ -141,8 +142,10 @@
     pauseRewindEnabled: false,
     pauseRewindSeconds: 2,
     pauseRewindMode: "fixed",
+    rememberPlaybackSpeed: true,
   }, (stored) => {
-    preferredRate = validRate(stored.lastSpeed) || 1;
+    rememberPlaybackSpeed = stored.rememberPlaybackSpeed !== false;
+    preferredRate = rememberPlaybackSpeed ? (validRate(stored.lastSpeed) || 1) : 1;
     extensionEnabled = stored.extensionEnabled !== false;
     shortcuts = Array.isArray(stored.speedShortcuts) ? stored.speedShortcuts : [];
     shortcutsEnabled = stored.speedShortcutsEnabled !== false;
@@ -181,6 +184,14 @@
     if (changes.pauseRewindEnabled) pauseRewind.enabled = Boolean(changes.pauseRewindEnabled.newValue);
     if (changes.pauseRewindSeconds) pauseRewind.seconds = validPositive(changes.pauseRewindSeconds.newValue) || 2;
     if (changes.pauseRewindMode) pauseRewind.mode = changes.pauseRewindMode.newValue === "scaled" ? "scaled" : "fixed";
+    if (changes.rememberPlaybackSpeed) {
+      rememberPlaybackSpeed = changes.rememberPlaybackSpeed.newValue !== false;
+      if (rememberPlaybackSpeed) {
+        chrome.storage.local.get({ lastSpeed: 1 }, (stored) => {
+          preferredRate = validRate(stored.lastSpeed) || preferredRate;
+        });
+      }
+    }
   });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -200,7 +211,10 @@
   });
   window.addEventListener("keydown", onKeyDown, true);
   window.addEventListener("keyup", onKeyUp, true);
-  window.addEventListener("yt-navigate-finish", applyCurrentRateWithRetry);
+  window.addEventListener("yt-navigate-finish", () => {
+    if (!rememberPlaybackSpeed) preferredRate = 1;
+    applyCurrentRateWithRetry();
+  });
   document.addEventListener("loadedmetadata", (event) => {
     if (event.target instanceof HTMLVideoElement) {
       applyRate(heldShortcut?.speed || preferredRate, Boolean(heldShortcut));

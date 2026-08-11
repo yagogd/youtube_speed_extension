@@ -28,9 +28,7 @@
   }
 
   function setTranscriptTitle() {
-    const automatic = state.transcript?.isAutomatic ? " · automática" : "";
-    const mode = state.settings.mode === "progressive" ? " · progresiva" : "";
-    ytx.panel.setTitle(`Transcripción · ${state.transcript?.languageName || ""}${automatic}${mode}`);
+    ytx.panel.setTitle(state.transcript?.languageName || "Subtítulos");
     state.ui.copyButton.hidden = false;
   }
 

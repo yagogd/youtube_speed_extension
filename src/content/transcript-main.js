@@ -20,6 +20,7 @@
     if (area !== "local") return;
     const relevant = changes.extensionEnabled || changes.transcriptEnabled || changes.transcriptMode ||
       changes.transcriptGrouping || changes.transcriptPreferredLanguage || changes.transcriptAutoOpenNextVideo ||
+      changes.transcriptRememberLayout ||
       changes.transcriptPanelBackground || changes.transcriptPanelTextColor || changes.transcriptPanelFont ||
       changes.transcriptPanelFontSize || changes.transcriptPanelOpacity;
     if (!relevant) return;
@@ -36,6 +37,7 @@
     if (changes.transcriptGrouping) state.settings.grouping = changes.transcriptGrouping.newValue;
     if (changes.transcriptPreferredLanguage) state.settings.preferredLanguage = changes.transcriptPreferredLanguage.newValue || "auto";
     if (changes.transcriptAutoOpenNextVideo) state.settings.autoOpenNextVideo = changes.transcriptAutoOpenNextVideo.newValue !== false;
+    if (changes.transcriptRememberLayout) state.settings.rememberLayout = changes.transcriptRememberLayout.newValue !== false;
     if (changes.transcriptPanelBackground) state.appearance.background = changes.transcriptPanelBackground.newValue;
     if (changes.transcriptPanelTextColor) state.appearance.text = changes.transcriptPanelTextColor.newValue;
     if (changes.transcriptPanelFont) state.appearance.font = changes.transcriptPanelFont.newValue;
@@ -70,9 +72,10 @@
         transcriptEnabled: true,
         extensionEnabled: true,
         transcriptMode: "full",
-      transcriptGrouping: "grouped",
+      transcriptGrouping: "sentences",
       transcriptPreferredLanguage: "auto",
       transcriptAutoOpenNextVideo: true,
+      transcriptRememberLayout: true,
       transcriptPanelBackground: "#1e1e22",
       transcriptPanelTextColor: "#e4e4e7",
       transcriptPanelFont: "Inter, Roboto, Arial, sans-serif",
@@ -85,6 +88,7 @@
         state.settings.grouping = stored.transcriptGrouping;
         state.settings.preferredLanguage = stored.transcriptPreferredLanguage;
         state.settings.autoOpenNextVideo = stored.transcriptAutoOpenNextVideo;
+        state.settings.rememberLayout = stored.transcriptRememberLayout !== false;
         state.appearance = {
           background: stored.transcriptPanelBackground,
           text: stored.transcriptPanelTextColor,

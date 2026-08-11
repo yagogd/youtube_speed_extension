@@ -104,19 +104,6 @@
     ui.noteEditorInput.focus();
   }
 
-  function currentMomentDraft() {
-    const video = document.querySelector("video");
-    const currentMs = (video?.currentTime || 0) * 1000;
-    const block = state.displayBlocks.find((candidate) => candidate.startMs <= currentMs && currentMs < candidate.endMs);
-    return {
-      type: "favorite",
-      startMs: block?.startMs ?? currentMs,
-      endMs: block?.endMs ?? currentMs,
-      text: block?.text || "",
-      note: "",
-    };
-  }
-
   function renderDrawer() {
     const ui = state.ui;
     if (!ui?.notesList) return;
@@ -222,7 +209,6 @@
   }
 
   function attach(ui) {
-    const onBookmark = () => openEditor(currentMomentDraft());
     const setNotesOpen = (open) => {
       ui.panel.classList.toggle("ytx-panel--notes-open", open);
       ui.notesToggle.setAttribute("aria-expanded", String(open));
@@ -255,7 +241,6 @@
     const onStorageChanged = (changes, area) => {
       if (area === "local" && changes[STORAGE_KEY]) loadCurrent();
     };
-    ui.bookmarkButton.addEventListener("click", onBookmark);
     ui.notesToggle.addEventListener("click", onToggleNotes);
     ui.notesClose.addEventListener("click", onCloseNotes);
     ui.noteEditorCancel.addEventListener("click", onCancel);
@@ -264,7 +249,6 @@
     chrome.storage.onChanged.addListener(onStorageChanged);
     loadCurrent();
     return () => {
-      ui.bookmarkButton.removeEventListener("click", onBookmark);
       ui.notesToggle.removeEventListener("click", onToggleNotes);
       ui.notesClose.removeEventListener("click", onCloseNotes);
       ui.noteEditorCancel.removeEventListener("click", onCancel);

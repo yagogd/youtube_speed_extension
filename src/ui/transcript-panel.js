@@ -4,7 +4,6 @@
   const state = ytx.state;
   const PANEL_STORAGE_DEFAULTS = {
     transcriptPanelGeometry: null,
-    transcriptPanelMinimized: false,
     transcriptHeaderCollapsed: false,
   };
   const ICON_PATHS = {
@@ -13,8 +12,6 @@
     list: ['<path d="M8 6h13M8 12h13M8 18h13"/>', '<path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>'],
     chevronUp: ['<path d="m6 15 6-6 6 6"/>'],
     chevronDown: ['<path d="m6 9 6 6 6-6"/>'],
-    minus: ['<path d="M5 12h14"/>'],
-    plus: ['<path d="M12 5v14M5 12h14"/>'],
     close: ['<path d="m6 6 12 12M18 6 6 18"/>'],
     copy: ['<rect x="8" y="8" width="11" height="11" rx="2"/>', '<path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'],
     check: ['<path d="m5 12 4 4L19 6"/>'],
@@ -97,6 +94,7 @@
   }
 
   function savePanelGeometry(panel, heightOverride) {
+    if (state.settings.rememberLayout === false) return;
     const rect = panel.getBoundingClientRect();
     chrome.storage.local.set({
       transcriptPanelGeometry: {
@@ -108,11 +106,19 @@
     });
   }
 
+  function baseLanguageName(value) {
+    return String(value || "")
+      .replace(/\s*\([^)]*\)\s*/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   function setTitle(text) {
     if (!state.ui) return;
-    state.ui.title.dataset.fullTitle = text;
-    state.ui.title.title = text;
-    state.ui.title.textContent = state.ui.panel.classList.contains("ytx-panel--compact") ? "Transcripción" : text;
+    const languageName = baseLanguageName(text) || "Subtítulos";
+    state.ui.title.dataset.fullTitle = languageName;
+    state.ui.title.title = languageName;
+    if (!state.transcriptTracks?.length && state.ui.trackSelect) state.ui.trackSelect.value = languageName;
   }
 
   function setupAdaptiveHeader(ui) {
@@ -120,7 +126,6 @@
       const rect = ui.panel.getBoundingClientRect();
       const compact = rect.height < 340 || rect.width < 520;
       ui.panel.classList.toggle("ytx-panel--compact", compact);
-      ui.title.textContent = compact ? "Transcripción" : ui.title.dataset.fullTitle;
       ui.copyButton.classList.toggle("ytx-button--icon-only", compact);
     };
     const observer = new ResizeObserver(update);
@@ -131,18 +136,45 @@
 
   function updateTrackSelector() {
     const ui = state.ui;
-    if (!ui?.trackSelect) return;
+    if (!ui?.trackSelect || !ui.trackDatalist || !ui.trackMenu) return;
     const tracks = Array.isArray(state.transcriptTracks) ? state.transcriptTracks : [];
-    ui.trackSelect.replaceChildren();
+    const trackPriority = (track) => track.isTranslated ? 2 : track.isAutomatic ? 1 : 0;
+    const tracksByLanguage = new Map();
     tracks.forEach((track) => {
-      const option = document.createElement("option");
-      option.value = track.id;
-      option.textContent = `${track.languageName || track.languageCode}${track.isAutomatic ? " · automática" : ""}`;
-      ui.trackSelect.appendChild(option);
+      const key = String(track.languageCode || track.languageName).toLocaleLowerCase();
+      const current = tracksByLanguage.get(key);
+      if (!current || trackPriority(track) < trackPriority(current)) tracksByLanguage.set(key, track);
     });
-    ui.trackSelector.hidden = tracks.length < 2;
-    if (state.transcript?.selectedTrackId && tracks.some((track) => track.id === state.transcript.selectedTrackId)) {
-      ui.trackSelect.value = state.transcript.selectedTrackId;
+    const selectableTracks = Array.from(tracksByLanguage.values());
+    ui.trackDatalist.replaceChildren();
+    ui.trackMenu.replaceChildren();
+    if (!tracks.length) {
+      ui.trackSelect.value = state.transcript?.languageName
+        ? baseLanguageName(state.transcript.languageName)
+        : (ui.title.dataset.fullTitle || "Cargando subtítulos…");
+    }
+    selectableTracks.forEach((track) => {
+      const option = document.createElement("option");
+      option.value = baseLanguageName(track.languageName) || track.languageCode;
+      option.dataset.trackId = track.id;
+      ui.trackDatalist.appendChild(option);
+      const menuOption = document.createElement("button");
+      menuOption.type = "button";
+      menuOption.className = "ytx-track-selector__option";
+      menuOption.dataset.trackId = track.id;
+      menuOption.dataset.value = option.value;
+      menuOption.setAttribute("role", "option");
+      menuOption.textContent = option.value;
+      ui.trackMenu.appendChild(menuOption);
+    });
+    ui.trackSelector.hidden = false;
+    ui.trackSelect.disabled = selectableTracks.length < 2;
+    if (selectableTracks.length) {
+      const selected = selectableTracks.find((track) => track.id === state.transcript?.selectedTrackId) ||
+        selectableTracks.find((track) => track.languageCode === state.transcript?.languageCode) ||
+        selectableTracks[0];
+      ui.trackSelect.value = baseLanguageName(selected.languageName) || selected.languageCode;
+      ui.trackSelect.dataset.selectedTrackId = selected.id;
     }
   }
 
@@ -165,38 +197,6 @@
     title.dataset.fullTitle = "Cargando transcripción…";
     title.textContent = title.dataset.fullTitle;
 
-    const speedControl = document.createElement("div");
-    speedControl.className = "ytx-speed-control";
-
-    const speedDownButton = document.createElement("button");
-    speedDownButton.type = "button";
-    speedDownButton.className = "ytx-speed-control__button";
-    setButtonIcon(speedDownButton, "minus");
-    labelButton(speedDownButton, "Reducir velocidad en 0,25");
-
-    const speedInput = document.createElement("input");
-    speedInput.className = "ytx-speed-control__input";
-    speedInput.type = "number";
-    speedInput.min = "0.1";
-    speedInput.max = "16";
-    speedInput.step = "0.25";
-    speedInput.value = "1";
-    speedInput.title = "Velocidad del vídeo";
-    speedInput.setAttribute("aria-label", "Velocidad del vídeo");
-
-    const speedUpButton = document.createElement("button");
-    speedUpButton.type = "button";
-    speedUpButton.className = "ytx-speed-control__button";
-    setButtonIcon(speedUpButton, "plus");
-    labelButton(speedUpButton, "Aumentar velocidad en 0,25");
-
-    const speedResetButton = document.createElement("button");
-    speedResetButton.type = "button";
-    speedResetButton.className = "ytx-speed-control__reset";
-    speedResetButton.textContent = "1×";
-    labelButton(speedResetButton, "Restablecer velocidad a 1x");
-    speedControl.append(speedDownButton, speedInput, speedUpButton, speedResetButton);
-
     const copyButton = document.createElement("button");
     copyButton.type = "button";
     copyButton.className = "ytx-button ytx-button--copy";
@@ -207,7 +207,7 @@
     const collapseHeaderButton = document.createElement("button");
     collapseHeaderButton.type = "button";
     collapseHeaderButton.className = "ytx-button ytx-button--collapse-header";
-    setButtonIcon(collapseHeaderButton, "chevronUp");
+    setButtonIcon(collapseHeaderButton, "chevronDown");
     labelButton(collapseHeaderButton, "Ocultar la cabecera");
     collapseHeaderButton.setAttribute("aria-expanded", "true");
 
@@ -219,12 +219,6 @@
     searchToggle.setAttribute("aria-expanded", "false");
     searchToggle.setAttribute("aria-controls", "ytx-transcript-search");
 
-    const bookmarkButton = document.createElement("button");
-    bookmarkButton.type = "button";
-    bookmarkButton.className = "ytx-button ytx-button--bookmark";
-    setButtonIcon(bookmarkButton, "star");
-    labelButton(bookmarkButton, "Guardar el momento actual");
-
     const notesToggle = document.createElement("button");
     notesToggle.type = "button";
     notesToggle.className = "ytx-button ytx-button--notes";
@@ -232,13 +226,6 @@
     labelButton(notesToggle, "Mostrar notas y favoritos de este vídeo");
     notesToggle.setAttribute("aria-expanded", "false");
     notesToggle.setAttribute("aria-controls", "ytx-transcript-notes");
-
-    const minimizeButton = document.createElement("button");
-    minimizeButton.type = "button";
-    minimizeButton.className = "ytx-button ytx-button--minimize";
-    setButtonIcon(minimizeButton, "minus");
-    labelButton(minimizeButton, "Minimizar el panel");
-    minimizeButton.setAttribute("aria-expanded", "true");
 
     const closeButton = document.createElement("button");
     closeButton.type = "button";
@@ -257,10 +244,20 @@
     const trackLabel = document.createElement("label");
     trackLabel.htmlFor = "ytx-transcript-track";
     trackLabel.textContent = "Pista";
-    const trackSelect = document.createElement("select");
+    const trackSelect = document.createElement("input");
     trackSelect.id = "ytx-transcript-track";
+    trackSelect.type = "search";
+    trackSelect.placeholder = "Idioma…";
     trackSelect.setAttribute("aria-label", "Pista de subtítulos");
-    trackSelector.append(trackLabel, trackSelect);
+    trackSelect.setAttribute("aria-haspopup", "listbox");
+    trackSelect.setAttribute("aria-expanded", "false");
+    const trackDatalist = document.createElement("datalist");
+    trackDatalist.id = "ytx-transcript-track-options";
+    const trackMenu = document.createElement("div");
+    trackMenu.className = "ytx-track-selector__menu";
+    trackMenu.setAttribute("role", "listbox");
+    trackMenu.hidden = true;
+    trackSelector.append(trackLabel, trackSelect, trackDatalist, trackMenu);
 
     const searchBar = document.createElement("div");
     searchBar.id = "ytx-transcript-search";
@@ -338,9 +335,16 @@
 
     const headerActions = document.createElement("div");
     headerActions.className = "ytx-panel__actions";
-    headerActions.append(searchToggle, bookmarkButton, notesToggle, collapseHeaderButton, copyButton, minimizeButton, closeButton);
-    header.append(title, speedControl, headerActions);
-    panel.append(header, trackSelector, searchBar, notesDrawer, noteEditor, content);
+    const transcriptActions = document.createElement("div");
+    transcriptActions.className = "ytx-panel__action-group";
+    transcriptActions.append(searchToggle, notesToggle, copyButton);
+    const windowActions = document.createElement("div");
+    windowActions.className = "ytx-panel__action-group";
+    windowActions.append(collapseHeaderButton, closeButton);
+    title.replaceChildren(trackSelector);
+    headerActions.append(transcriptActions, windowActions);
+    header.append(title, headerActions);
+    panel.append(header, searchBar, notesDrawer, noteEditor, content);
     (document.fullscreenElement || document.body).appendChild(panel);
 
     const ui = {
@@ -348,11 +352,11 @@
       header,
       title,
       content,
-      speedControl,
-      speedInput,
       headerActions,
       trackSelector,
       trackSelect,
+      trackDatalist,
+      trackMenu,
       searchToggle,
       searchBar,
       searchInput,
@@ -360,7 +364,6 @@
       searchPrevious,
       searchNext,
       searchClose,
-      bookmarkButton,
       notesToggle,
       notesDrawer,
       notesClose,
@@ -373,7 +376,6 @@
       noteEditorSave,
       collapseHeaderButton,
       copyButton,
-      minimizeButton,
       closeButton,
       cleanups: [],
     };
@@ -391,80 +393,70 @@
     }
     updateTrackSelector();
 
-    const onTrackChange = () => {
+    const selectTrack = (trackId, value) => {
+      const option = Array.from(trackDatalist.options).find((candidate) => candidate.dataset.trackId === trackId);
+      if (!option?.dataset.trackId) {
+        const current = Array.from(trackDatalist.options).find((candidate) => candidate.dataset.trackId === trackSelect.dataset.selectedTrackId);
+        if (current) trackSelect.value = current.value;
+        return;
+      }
+      trackSelect.value = value || option.value;
+      trackSelect.dataset.selectedTrackId = option.dataset.trackId;
+      trackMenu.hidden = true;
+      trackSelect.setAttribute("aria-expanded", "false");
       window.postMessage({
         source: "YT_TRANSCRIPT_CONTROL",
         enabled: true,
         preferredLanguage: state.settings.preferredLanguage || "auto",
-        selectTrackId: trackSelect.value,
+        selectTrackId: option.dataset.trackId,
       }, "*");
     };
+    const onTrackChange = () => {
+      const option = Array.from(trackDatalist.options).find((candidate) => candidate.value === trackSelect.value);
+      selectTrack(option?.dataset.trackId, option?.value);
+    };
     trackSelect.addEventListener("change", onTrackChange);
+    const onTrackFocus = () => trackSelect.select();
+    const onTrackClick = () => {
+      trackMenu.querySelectorAll(".ytx-track-selector__option").forEach((option) => { option.hidden = false; });
+      trackMenu.hidden = false;
+      trackSelect.setAttribute("aria-expanded", "true");
+    };
+    const onTrackInput = () => {
+      const query = trackSelect.value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
+      trackMenu.querySelectorAll(".ytx-track-selector__option").forEach((option) => {
+        const value = option.dataset.value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
+        option.hidden = Boolean(query) && !value.includes(query);
+      });
+      trackMenu.hidden = false;
+      trackSelect.setAttribute("aria-expanded", "true");
+    };
+    const onTrackMenuClick = (event) => {
+      const option = event.target.closest(".ytx-track-selector__option");
+      if (option) selectTrack(option.dataset.trackId, option.dataset.value);
+    };
+    const onOutsideTrackClick = (event) => {
+      if (trackSelector.contains(event.target)) return;
+      trackMenu.hidden = true;
+      trackSelect.setAttribute("aria-expanded", "false");
+    };
+    trackSelect.addEventListener("focus", onTrackFocus);
+    trackSelect.addEventListener("click", onTrackClick);
+    trackSelect.addEventListener("input", onTrackInput);
+    trackMenu.addEventListener("click", onTrackMenuClick);
+    document.addEventListener("pointerdown", onOutsideTrackClick, true);
     ui.cleanups.push(() => trackSelect.removeEventListener("change", onTrackChange));
-
-    const sendSpeed = (value) => {
-      const rate = Number(value);
-      if (!Number.isFinite(rate) || rate <= 0) return;
-      if (rate > 16) {
-        showNotice("No puedes usar una velocidad superior a 16×, ya que es el máximo permitido.");
-        return;
-      }
-      const normalized = Math.round(rate * 100) / 100;
-      speedInput.value = String(normalized);
-      window.postMessage({ source: "YT_SPEED_CONTROL", rate: normalized }, "*");
-    };
-    const changeSpeed = (delta) => sendSpeed(Math.max(0.1, (Number(speedInput.value) || 1) + delta));
-    const onSpeedDown = () => changeSpeed(-0.25);
-    const onSpeedUp = () => changeSpeed(0.25);
-    const onSpeedReset = () => sendSpeed(1);
-    const onSpeedInputKey = (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        sendSpeed(speedInput.value);
-        speedInput.blur();
-      }
-    };
-    const onSpeedState = (event) => {
-      if (event.source !== window || event.data?.source !== "YT_SPEED_STATE") return;
-      speedInput.value = String(Math.round(Number(event.data.rate) * 100) / 100);
-      speedControl.classList.toggle("ytx-speed-control--temporary", Boolean(event.data.temporary));
-    };
-    speedDownButton.addEventListener("click", onSpeedDown);
-    speedUpButton.addEventListener("click", onSpeedUp);
-    speedResetButton.addEventListener("click", onSpeedReset);
-    speedInput.addEventListener("keydown", onSpeedInputKey);
-    window.addEventListener("message", onSpeedState);
-    ui.cleanups.push(() => speedDownButton.removeEventListener("click", onSpeedDown));
-    ui.cleanups.push(() => speedUpButton.removeEventListener("click", onSpeedUp));
-    ui.cleanups.push(() => speedResetButton.removeEventListener("click", onSpeedReset));
-    ui.cleanups.push(() => speedInput.removeEventListener("keydown", onSpeedInputKey));
-    ui.cleanups.push(() => window.removeEventListener("message", onSpeedState));
-    chrome.storage.local.get({ lastSpeed: 1 }, (stored) => {
-      if (state.ui === ui) speedInput.value = String(stored.lastSpeed || 1);
-    });
-
-    let minimized = false;
-    let previousHeight = panel.getBoundingClientRect().height;
-    const onMinimize = () => {
-      minimized = !minimized;
-      if (minimized) previousHeight = panel.getBoundingClientRect().height;
-      panel.classList.toggle("ytx-panel--minimized", minimized);
-      panel.style.minHeight = minimized ? "58px" : "130px";
-      panel.style.height = minimized ? "58px" : `${previousHeight}px`;
-      setButtonIcon(minimizeButton, minimized ? "plus" : "minus");
-      labelButton(minimizeButton, minimized ? "Restaurar el panel" : "Minimizar el panel");
-      minimizeButton.setAttribute("aria-expanded", String(!minimized));
-      chrome.storage.local.set({ transcriptPanelMinimized: minimized });
-      savePanelGeometry(panel, previousHeight);
-    };
-    minimizeButton.addEventListener("click", onMinimize);
-    ui.cleanups.push(() => minimizeButton.removeEventListener("click", onMinimize));
+    ui.cleanups.push(() => trackSelect.removeEventListener("focus", onTrackFocus));
+    ui.cleanups.push(() => trackSelect.removeEventListener("click", onTrackClick));
+    ui.cleanups.push(() => trackSelect.removeEventListener("input", onTrackInput));
+    ui.cleanups.push(() => trackMenu.removeEventListener("click", onTrackMenuClick));
+    ui.cleanups.push(() => document.removeEventListener("pointerdown", onOutsideTrackClick, true));
 
     let headerCollapsed = false;
     const onCollapseHeader = () => {
       headerCollapsed = !headerCollapsed;
       panel.classList.toggle("ytx-panel--header-collapsed", headerCollapsed);
-      setButtonIcon(collapseHeaderButton, headerCollapsed ? "chevronDown" : "chevronUp");
+      setButtonIcon(collapseHeaderButton, headerCollapsed ? "chevronUp" : "chevronDown");
       labelButton(collapseHeaderButton, headerCollapsed ? "Mostrar la cabecera" : "Ocultar la cabecera");
       collapseHeaderButton.setAttribute("aria-expanded", String(!headerCollapsed));
       chrome.storage.local.set({ transcriptHeaderCollapsed: headerCollapsed });
@@ -515,23 +507,17 @@
     content.addEventListener("scroll", onContentScroll, { passive: true });
     ui.cleanups.push(() => content.removeEventListener("scroll", onContentScroll));
 
-    const onGeometryChange = () => savePanelGeometry(panel, minimized ? previousHeight : undefined);
+    const onGeometryChange = () => savePanelGeometry(panel);
     panel.addEventListener("ytx:geometrychange", onGeometryChange);
     ui.cleanups.push(() => panel.removeEventListener("ytx:geometrychange", onGeometryChange));
 
     chrome.storage.local.get(PANEL_STORAGE_DEFAULTS, (stored) => {
       if (state.ui !== ui) return;
-      previousHeight = applyStoredGeometry(panel, stored.transcriptPanelGeometry) || previousHeight;
-      minimized = Boolean(stored.transcriptPanelMinimized);
-      headerCollapsed = Boolean(stored.transcriptHeaderCollapsed);
-      panel.classList.toggle("ytx-panel--minimized", minimized);
+      if (state.settings.rememberLayout !== false) applyStoredGeometry(panel, stored.transcriptPanelGeometry);
+      headerCollapsed = state.settings.rememberLayout !== false && Boolean(stored.transcriptHeaderCollapsed);
       panel.classList.toggle("ytx-panel--header-collapsed", headerCollapsed);
-      panel.style.minHeight = minimized ? "58px" : "130px";
-      panel.style.height = minimized ? "58px" : `${previousHeight}px`;
-      setButtonIcon(minimizeButton, minimized ? "plus" : "minus");
-      labelButton(minimizeButton, minimized ? "Restaurar el panel" : "Minimizar el panel");
-      minimizeButton.setAttribute("aria-expanded", String(!minimized));
-      setButtonIcon(collapseHeaderButton, headerCollapsed ? "chevronDown" : "chevronUp");
+      panel.style.minHeight = "130px";
+      setButtonIcon(collapseHeaderButton, headerCollapsed ? "chevronUp" : "chevronDown");
       labelButton(collapseHeaderButton, headerCollapsed ? "Mostrar la cabecera" : "Ocultar la cabecera");
       collapseHeaderButton.setAttribute("aria-expanded", String(!headerCollapsed));
     });

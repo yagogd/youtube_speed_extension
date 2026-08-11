@@ -3,8 +3,12 @@
   window.__ytTranscriptNetworkObserverLoaded = true;
 
   const processedUrls = new Set();
+  const transcriptCache = new Map();
   let currentVideoId = null;
   let requestGeneration = 0;
+  let activeFetchController = null;
+  let lastFailureKind = null;
+  let rateLimitedUntil = 0;
   let subtitlesEnabledByExtension = false;
   let transcriptCompleted = false;
   let enabled = false;
@@ -20,27 +24,57 @@
     return new URL(location.href).searchParams.get("v");
   }
 
-  function playerCaptionTracks() {
+  function playerCaptionData() {
     const playerResponse = document.getElementById("movie_player")?.getPlayerResponse?.() || window.ytInitialPlayerResponse;
-    return playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
+    return playerResponse?.captions?.playerCaptionsTracklistRenderer || {};
+  }
+
+  function playerCaptionTracks() {
+    return playerCaptionData().captionTracks || [];
+  }
+
+  function playerTranslationLanguages() {
+    return playerCaptionData().translationLanguages || [];
   }
 
   function trackName(track) {
-    return track.name?.simpleText || track.name?.runs?.map((run) => run.text).join("") || track.languageCode || "Desconocido";
+    return track.name?.simpleText || track.name?.runs?.map((run) => run.text).join("") ||
+      track.languageName?.simpleText || track.languageName?.runs?.map((run) => run.text).join("") ||
+      track.languageCode || "Desconocido";
   }
 
   function collectTracks() {
-    availableTracks = playerCaptionTracks().map((track, index) => ({
+    const originalTracks = playerCaptionTracks().map((track, index) => ({
       id: `${track.languageCode || "unknown"}:${track.kind || "manual"}:${index}`,
       languageCode: track.languageCode || "unknown",
       languageName: trackName(track),
       isAutomatic: track.kind === "asr",
+      isTranslatable: track.isTranslatable !== false,
       baseUrl: track.baseUrl,
     })).filter((track) => {
       if (!track.baseUrl) return false;
       const trackVideoId = new URL(track.baseUrl).searchParams.get("v");
       return !trackVideoId || !currentVideoId || trackVideoId === currentVideoId;
     });
+    const translatableTracks = originalTracks.filter((track) => track.isTranslatable);
+    const translationSource = translatableTracks.find((track) => !track.isAutomatic) || translatableTracks[0];
+    const originalLanguages = new Set(originalTracks.map((track) => track.languageCode.toLocaleLowerCase()));
+    const translatedTracks = translationSource ? playerTranslationLanguages()
+      .filter((language) => language.languageCode && !originalLanguages.has(language.languageCode.toLocaleLowerCase()))
+      .map((language) => {
+        const url = new URL(translationSource.baseUrl);
+        url.searchParams.set("tlang", language.languageCode);
+        return {
+          id: `translated:${language.languageCode}`,
+          languageCode: language.languageCode,
+          languageName: trackName(language),
+          isAutomatic: true,
+          isTranslated: true,
+          sourceLanguageCode: translationSource.languageCode,
+          baseUrl: url.href,
+        };
+      }) : [];
+    availableTracks = [...originalTracks, ...translatedTracks];
     post({
       type: "YT_TRANSCRIPT_TRACKS",
       videoId: currentVideoId,
@@ -66,10 +100,33 @@
     return url.href;
   }
 
+  function cacheKey(videoId, trackId) {
+    return videoId && trackId ? `${videoId}:${trackId}` : null;
+  }
+
+  function restoreCachedTranscript(trackId) {
+    const key = cacheKey(currentVideoId, trackId);
+    const cached = key ? transcriptCache.get(key) : null;
+    if (!cached) return false;
+    transcriptCompleted = true;
+    lastReadyPayload = { ...cached, tracks: availableTracks.map(({ baseUrl, ...track }) => track) };
+    post(lastReadyPayload);
+    return true;
+  }
+
   function getTrackInformation(url) {
-    const languageCode = new URL(url).searchParams.get("lang") || "desconocido";
+    const parsedUrl = new URL(url);
+    const translatedLanguage = parsedUrl.searchParams.get("tlang");
+    const languageCode = translatedLanguage || parsedUrl.searchParams.get("lang") || "desconocido";
     let languageName = languageCode;
-    let isAutomatic = new URL(url).searchParams.get("kind") === "asr";
+    let isAutomatic = translatedLanguage ? true : parsedUrl.searchParams.get("kind") === "asr";
+    const isTranslated = Boolean(translatedLanguage);
+
+    if (translatedLanguage) {
+      const language = playerTranslationLanguages().find((candidate) => candidate.languageCode === translatedLanguage);
+      if (language) languageName = trackName(language);
+      return { languageCode, languageName, isAutomatic, isTranslated };
+    }
 
     const tracks = window.ytInitialPlayerResponse?.captions
       ?.playerCaptionsTracklistRenderer?.captionTracks || [];
@@ -83,7 +140,7 @@
       isAutomatic = track.kind === "asr";
     }
 
-    return { languageCode, languageName, isAutomatic };
+    return { languageCode, languageName, isAutomatic, isTranslated };
   }
 
   function restoreSubtitleState() {
@@ -94,19 +151,34 @@
   }
 
   async function processTimedTextUrl(url, options = {}) {
-    const { force = false, selectedTrackId = null } = options;
+    const { force = false, selectedTrackId = null, generation = requestGeneration } = options;
     if (!enabled || (!force && processedUrls.has(url)) || (!force && transcriptCompleted)) return false;
+    if (!force && activeFetchController) return false;
+    if (generation !== requestGeneration) return false;
+
+    if (Date.now() < rateLimitedUntil) {
+      post({
+        type: "YT_TRANSCRIPT_ERROR",
+        message: "YouTube ha limitado temporalmente las peticiones de subtítulos. Espera unos segundos antes de cambiar de idioma.",
+      });
+      return false;
+    }
 
     const requestedVideoId = new URL(url).searchParams.get("v");
     if (requestedVideoId && currentVideoId && requestedVideoId !== currentVideoId) return false;
 
     processedUrls.add(url);
+    lastFailureKind = null;
     const videoIdAtDetection = currentVideoId;
     window.ultimaUrlSubtitulos = url;
     console.log("[Transcript] URL detectada:", url);
 
+    let controller = null;
     try {
-      const response = await fetch(url, { credentials: "include" });
+      if (force) activeFetchController?.abort();
+      controller = new AbortController();
+      activeFetchController = controller;
+      const response = await fetch(url, { credentials: "include", signal: controller.signal });
       const text = await response.text();
       window.ultimaRespuestaSubtitulos = text;
 
@@ -116,14 +188,26 @@
         length: text.length,
       });
 
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      if (!text.trim()) throw new Error("YouTube devolvió una respuesta vacía");
+      if (response.status === 429) {
+        const retryAfter = Number(response.headers.get("retry-after"));
+        rateLimitedUntil = Date.now() + (Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 30000);
+        lastFailureKind = "rate-limit";
+        throw new Error("HTTP 429: YouTube ha limitado temporalmente las peticiones de subtítulos");
+      }
+      if (!response.ok) {
+        lastFailureKind = "http";
+        throw new Error(`HTTP ${response.status}`);
+      }
+      if (!text.trim()) {
+        lastFailureKind = "empty";
+        throw new Error("YouTube devolvió una respuesta vacía para esta pista");
+      }
       if (!text.trimStart().startsWith("{")) throw new Error("La respuesta no parece JSON");
 
       if (!window.YTXTranscriptParser) throw new Error("El parser de transcripción no está disponible");
       const { cues, blocks } = window.YTXTranscriptParser.parseJson3(JSON.parse(text));
       if (!cues.length) throw new Error("La transcripción extraída está vacía");
-      if (videoIdAtDetection !== currentVideoId) return;
+      if (videoIdAtDetection !== currentVideoId || generation !== requestGeneration) return false;
 
       transcriptCompleted = true;
       if (!availableTracks.length) collectTracks();
@@ -141,10 +225,13 @@
         })?.id || null,
         tracks: availableTracks.map(({ baseUrl, ...track }) => track),
       };
+      const key = cacheKey(currentVideoId, lastReadyPayload.selectedTrackId);
+      if (key) transcriptCache.set(key, lastReadyPayload);
       post(lastReadyPayload);
       restoreSubtitleState();
       return true;
     } catch (error) {
+      if (error?.name === "AbortError" || generation !== requestGeneration) return false;
       console.error("[Transcript] Error:", error);
       window.ultimoErrorSubtitulos = String(error.message || error);
       if (videoIdAtDetection === currentVideoId) {
@@ -152,6 +239,8 @@
         restoreSubtitleState();
       }
       return false;
+    } finally {
+      if (activeFetchController === controller) activeFetchController = null;
     }
   }
 
@@ -165,7 +254,7 @@
   async function requestTranscript(force = false) {
     if (!enabled) return;
     const nextVideoId = videoIdFromLocation();
-    if (!force && nextVideoId && nextVideoId === currentVideoId && requestGeneration > 0) return;
+    if (!force && nextVideoId && nextVideoId === currentVideoId && (transcriptCompleted || activeFetchController)) return;
 
     if (!force && lastReadyPayload?.videoId === nextVideoId) {
       currentVideoId = nextVideoId;
@@ -176,6 +265,7 @@
 
     requestGeneration += 1;
     const generation = requestGeneration;
+    if (currentVideoId && nextVideoId !== currentVideoId) transcriptCache.clear();
     currentVideoId = nextVideoId;
     transcriptCompleted = false;
     processedUrls.clear();
@@ -185,8 +275,10 @@
     const tracks = collectTracks();
     const selected = preferredTrack(tracks);
     if (selected) {
-      const loaded = await processTimedTextUrl(json3Url(selected.baseUrl), { force: true, selectedTrackId: selected.id });
+      if (restoreCachedTranscript(selected.id)) return;
+      const loaded = await processTimedTextUrl(json3Url(selected.baseUrl), { force: true, selectedTrackId: selected.id, generation });
       if (loaded) return;
+      if (generation !== requestGeneration || lastFailureKind === "rate-limit") return;
     }
 
     let attempts = 0;
@@ -237,14 +329,18 @@
     if (event.data.selectTrackId) {
       const selected = availableTracks.find((track) => track.id === event.data.selectTrackId) || collectTracks().find((track) => track.id === event.data.selectTrackId);
       if (enabled && selected) {
+        requestGeneration += 1;
+        const generation = requestGeneration;
+        activeFetchController?.abort();
+        if (restoreCachedTranscript(selected.id)) return;
         transcriptCompleted = false;
         post({ type: "YT_TRANSCRIPT_LOADING" });
-        processTimedTextUrl(json3Url(selected.baseUrl), { force: true, selectedTrackId: selected.id });
+        processTimedTextUrl(json3Url(selected.baseUrl), { force: true, selectedTrackId: selected.id, generation });
       }
       return;
     }
     if (enabled) {
-      requestTranscript(true);
+      requestTranscript();
     } else {
       requestGeneration += 1;
       restoreSubtitleState();
