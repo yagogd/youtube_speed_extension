@@ -1,5 +1,28 @@
 // popup.js
 document.addEventListener('DOMContentLoaded', () => {
+  const i18n = globalThis.YTXI18n;
+  const tr = (value) => i18n?.t(value) || value;
+  const languageButtons = [...document.querySelectorAll('.language-toggle')];
+
+  function refreshLanguageButtons() {
+    const isSpanish = (i18n?.getLanguage() || 'es') === 'es';
+    const label = isSpanish ? 'Cambiar a inglés' : 'Switch to Spanish';
+    languageButtons.forEach((button) => {
+      button.textContent = isSpanish ? 'ES' : 'EN';
+      button.title = label;
+      button.setAttribute('aria-label', label);
+    });
+  }
+
+  languageButtons.forEach((button) => button.addEventListener('click', () => {
+    i18n?.setLanguage(i18n.getLanguage() === 'es' ? 'en' : 'es');
+  }));
+  window.addEventListener('ytx:languagechange', () => {
+    refreshLanguageButtons();
+    i18n?.apply(document);
+  });
+  i18n?.start({ scope: 'popup' });
+  refreshLanguageButtons();
   function alert(message) {
     document.querySelector('.popup-notice')?.remove();
     const overlay = document.createElement('div');
@@ -46,7 +69,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const speedSlider = document.getElementById('speed-slider');
   const speedDown = document.getElementById('speed-down');
   const speedUp = document.getElementById('speed-up');
-  const presets = document.querySelectorAll('.preset');
+  const presetGrid = document.querySelector('.preset-grid');
+  const presetEditorList = document.getElementById('preset-editor-list');
+  const presetEditorValue = document.getElementById('preset-editor-value');
+  const presetEditorAdd = document.getElementById('preset-editor-add');
+  const presetEditorReset = document.getElementById('preset-editor-reset');
+  const presetEditorStatus = document.getElementById('preset-editor-status');
   const transcriptEnabled = document.getElementById('transcript-enabled');
   const transcriptMode = document.getElementById('transcript-mode');
   const transcriptGrouping = document.getElementById('transcript-grouping');
@@ -100,6 +128,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let capturedPauseShortcut = null;
   let pendingPauseModifier = null;
   let extensionEnabled = true;
+  const defaultSpeedPresets = [0.5, 1, 1.5, 2, 2.5, 3, 4, 8];
+  let speedPresets = [...defaultSpeedPresets];
 
   const autoOpenRow = transcriptAutoOpenNext.closest('.toggle');
   if (autoOpenRow) continuitySettings.appendChild(autoOpenRow);
@@ -110,6 +140,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (shortcutSectionTitle) shortcutSectionTitle.textContent = 'Atajos de teclado';
   if (shortcutSectionCopy) shortcutSectionCopy.textContent = 'Velocidad, pausa y retroceso';
   shortcutList.after(pauseShortcutList);
+
+  const settingsContent = continuitySettings.closest('.content');
+  const continuityDetails = continuitySettings.closest('details');
+  const transcriptDetails = transcriptEnabled.closest('details');
+  const panelDetails = panelBackground.closest('details');
+  const presetDetails = presetEditorList.closest('details');
+  [continuityDetails, transcriptDetails, panelDetails, presetDetails, shortcutDetails]
+    .forEach((section) => settingsContent.appendChild(section));
 
   const shortcutCreateRow = shortcutKeyButton.closest('.shortcut-create-row');
   shortcutCreateRow.classList.add('unified-shortcut-row');
@@ -156,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
     extensionPower.title = enabled ? 'Apagar extensión' : 'Encender extensión';
     extensionPower.setAttribute('aria-label', extensionPower.title);
     extensionStatus.textContent = enabled ? 'Control rápido' : 'Extensión apagada';
-    [speedInput, speedSlider, speedDown, speedUp, ...presets, quickTranscriptEnabled,
+    [speedInput, speedSlider, speedDown, speedUp, ...presetGrid.querySelectorAll('.preset'), quickTranscriptEnabled,
       quickPauseEnabled, quickShortcutsEnabled].forEach((control) => { control.disabled = !enabled; });
   }
 
@@ -187,6 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function showSettings(show) {
     mainView.hidden = show;
     settingsView.hidden = !show;
+    document.documentElement.classList.toggle('popup-notes-open', !show && !globalNotes.hidden);
     window.scrollTo(0, 0);
   }
 
@@ -266,29 +305,29 @@ document.addEventListener('DOMContentLoaded', () => {
   // Envía mensaje al tab activo
   async function sendSpeedToActiveTab(rate) {
     if (!extensionEnabled) {
-      alert('La extensión está apagada. Enciéndela antes de cambiar la velocidad.');
+      alert(tr('La extensión está apagada. Enciéndela antes de cambiar la velocidad.'));
       return;
     }
     rate = parseFloat(rate);
     if (rate > 16) {
-      alert('No puedes usar una velocidad superior a 16×, ya que es el máximo permitido.');
+      alert(tr('No puedes usar una velocidad superior a 16×, ya que es el máximo permitido.'));
       return;
     }
     if (isNaN(rate) || rate <= 0) {
-      alert('Introduce una velocidad válida (> 0).');
+      alert(tr('Introduce una velocidad válida (> 0).'));
       return;
     }
 
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab || !tab.id) {
-        alert("No se detecta ninguna pestaña activa.");
+        alert(tr("No se detecta ninguna pestaña activa."));
         return;
       }
 
       // Verifica que es YouTube
       if (!tab.url || !tab.url.includes("youtube.com")) {
-        alert("Abre YouTube antes de usar la extensión.");
+        alert(tr("Abre YouTube antes de usar la extensión."));
         return;
       }
 
@@ -296,12 +335,12 @@ document.addEventListener('DOMContentLoaded', () => {
       chrome.tabs.sendMessage(tab.id, { type: 'set-speed', value: rate }, (resp) => {
         if (chrome.runtime.lastError) {
           console.error('Runtime error:', chrome.runtime.lastError.message);
-          alert('⚠️ No se pudo comunicar con el vídeo. Prueba a recargar la página de YouTube.');
+          alert(tr('⚠️ No se pudo comunicar con el vídeo. Prueba a recargar la página de YouTube.'));
           return;
         }
 
         if (!resp) {
-          alert('⚠️ No se recibió respuesta del script.');
+          alert(tr('⚠️ No se recibió respuesta del script.'));
           return;
         }
 
@@ -314,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     } catch (e) {
       console.error('Error general:', e);
-      alert("Error al enviar mensaje a la pestaña.");
+      alert(tr("Error al enviar mensaje a la pestaña."));
     }
   }
 
@@ -324,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatted = Number(rate.toFixed(2));
     speedInput.value = formatted;
     speedSlider.value = formatted;
-    presets.forEach((preset) => {
+    presetGrid.querySelectorAll('.preset').forEach((preset) => {
       const selected = Math.abs(Number(preset.dataset.speed) - formatted) < 0.001;
       preset.classList.toggle('is-active', selected);
       preset.setAttribute('aria-pressed', String(selected));
@@ -346,15 +385,105 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   speedInput.addEventListener('change', () => setSpeedControls(speedInput.value, true));
 
-  presets.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      setSpeedControls(e.currentTarget.dataset.speed, true);
-    });
+  presetGrid.addEventListener('click', (event) => {
+    const button = event.target.closest('.preset');
+    if (button) setSpeedControls(button.dataset.speed, true);
   });
 
-  // cargar último speed guardado
-  chrome.storage.local.get(['lastSpeed'], (res) => {
-    setSpeedControls(res.lastSpeed || 1);
+  function normalizeSpeedPresets(values) {
+    const normalized = (Array.isArray(values) ? values : [])
+      .map(Number)
+      .filter((value) => Number.isFinite(value) && value >= 0.1 && value <= 16)
+      .map((value) => Number(value.toFixed(2)));
+    return [...new Set(normalized)].sort((a, b) => a - b);
+  }
+
+  function renderSpeedPresets() {
+    presetGrid.replaceChildren();
+    const columns = speedPresets.length <= 8 ? speedPresets.length : Math.ceil(speedPresets.length / 2);
+    presetGrid.style.setProperty('--speed-preset-count', Math.min(8, columns));
+    speedPresets.forEach((value) => {
+      const button = document.createElement('button');
+      button.className = 'preset';
+      button.dataset.speed = value;
+      button.textContent = value;
+      button.disabled = !extensionEnabled;
+      presetGrid.appendChild(button);
+    });
+    setSpeedControls(speedInput.value || 1);
+
+    presetEditorList.replaceChildren();
+    speedPresets.forEach((value, index) => {
+      const item = document.createElement('div');
+      item.className = 'preset-editor-item';
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0.1';
+      input.max = '16';
+      input.step = '0.1';
+      input.value = value;
+      input.setAttribute('aria-label', `Velocidad rápida ${index + 1}`);
+      input.addEventListener('change', () => {
+        const next = [...speedPresets];
+        next[index] = Number(input.value);
+        const normalized = normalizeSpeedPresets(next);
+        if (normalized.length < 4) {
+          presetEditorStatus.textContent = 'Debes conservar al menos 4 velocidades.';
+          renderSpeedPresets();
+          return;
+        }
+        speedPresets = normalized;
+        chrome.storage.local.set({ speedPresets });
+        presetEditorStatus.textContent = 'Velocidades actualizadas.';
+        renderSpeedPresets();
+      });
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'preset-editor-remove';
+      remove.textContent = '×';
+      remove.title = 'Eliminar velocidad';
+      remove.disabled = speedPresets.length <= 4;
+      remove.addEventListener('click', () => {
+        if (speedPresets.length <= 4) return;
+        speedPresets.splice(index, 1);
+        chrome.storage.local.set({ speedPresets });
+        renderSpeedPresets();
+      });
+      item.append(input, remove);
+      presetEditorList.appendChild(item);
+    });
+    presetEditorAdd.disabled = false;
+  }
+
+  presetEditorAdd.addEventListener('click', () => {
+    const value = Number(presetEditorValue.value);
+    if (!Number.isFinite(value) || value < 0.1 || value > 16) {
+      presetEditorStatus.textContent = 'Introduce una velocidad entre 0,1 y 16.';
+      return;
+    }
+    const normalized = normalizeSpeedPresets([...speedPresets, value]);
+    if (normalized.length === speedPresets.length) {
+      presetEditorStatus.textContent = 'Esa velocidad ya está añadida.';
+      return;
+    }
+    speedPresets = normalized;
+    presetEditorValue.value = '';
+    chrome.storage.local.set({ speedPresets });
+    presetEditorStatus.textContent = 'Velocidad añadida.';
+    renderSpeedPresets();
+  });
+  presetEditorReset.addEventListener('click', () => {
+    speedPresets = [...defaultSpeedPresets];
+    chrome.storage.local.set({ speedPresets });
+    presetEditorStatus.textContent = 'Valores restaurados.';
+    renderSpeedPresets();
+  });
+
+  chrome.storage.local.get({ lastSpeed: 1, speedPresets: defaultSpeedPresets }, (stored) => {
+    const normalized = normalizeSpeedPresets(stored.speedPresets);
+    speedPresets = normalized.length >= 4 ? normalized : [...defaultSpeedPresets];
+    renderSpeedPresets();
+    setSpeedControls(stored.lastSpeed || 1);
   });
 
   chrome.storage.local.get({ transcriptEnabled: true, transcriptMode: 'full', transcriptGrouping: 'sentences', transcriptPreferredLanguage: 'auto', transcriptAutoOpenNextVideo: true }, (res) => {
@@ -723,7 +852,7 @@ document.addEventListener('DOMContentLoaded', () => {
           saved = true;
           const value = Number(editor.value);
           if (value > 16) {
-            alert('No puedes asignar una velocidad superior a 16×.');
+            alert(tr('No puedes asignar una velocidad superior a 16×.'));
           } else if (Number.isFinite(value) && value > 0) {
             shortcut.speed = value;
             chrome.storage.local.set({ speedShortcuts });
@@ -796,11 +925,11 @@ document.addEventListener('DOMContentLoaded', () => {
   shortcutAdd.addEventListener('click', () => {
     const speed = Number(shortcutSpeed.value);
     if (shortcutType.value === 'speed' && speed > 16) {
-      alert('No puedes asignar una velocidad superior a 16×.');
+      alert(tr('No puedes asignar una velocidad superior a 16×.'));
       return;
     }
     if (!capturedShortcut || (shortcutType.value === 'speed' && (!Number.isFinite(speed) || speed <= 0))) {
-      alert(shortcutType.value === 'speed' ? 'Asigna una tecla e introduce una velocidad válida.' : 'Asigna una tecla.');
+      alert(tr(shortcutType.value === 'speed' ? 'Asigna una tecla e introduce una velocidad válida.' : 'Asigna una tecla.'));
       return;
     }
     const signature = JSON.stringify(capturedShortcut);
@@ -1021,7 +1150,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const remove = document.createElement('button');
         remove.textContent = 'Eliminar';
         remove.addEventListener('click', () => {
-          if (!window.confirm('¿Quieres eliminar esta nota? Esta acción no se puede deshacer.')) return;
+          if (!window.confirm(tr('¿Quieres eliminar esta nota? Esta acción no se puede deshacer.'))) return;
           chrome.storage.local.set({ ytxSavedNotes: notes.filter((candidate) => candidate.id !== item.id) }, loadGlobalNotes);
         });
         remove.setAttribute('aria-label', `Eliminar nota de ${formatNoteTime(item.startMs)}`);
@@ -1082,6 +1211,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   globalNotesToggle.addEventListener('click', () => {
     globalNotes.hidden = !globalNotes.hidden;
+    document.documentElement.classList.toggle('popup-notes-open', !globalNotes.hidden);
     globalNotesToggle.setAttribute('aria-expanded', String(!globalNotes.hidden));
     if (!globalNotes.hidden) loadGlobalNotes();
   });

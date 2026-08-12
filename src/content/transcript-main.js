@@ -1,5 +1,7 @@
 (() => {
   "use strict";
+
+  globalThis.YTXI18n?.start({ scope: "content" });
   if (globalThis.__ytTranscriptContentLoaded) return;
   globalThis.__ytTranscriptContentLoaded = true;
 

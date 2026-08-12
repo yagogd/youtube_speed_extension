@@ -55,6 +55,15 @@
     }
   }
 
+  function normalizeSpeedPresets(values) {
+    const normalized = (Array.isArray(values) ? values : [])
+      .map(Number)
+      .filter((value) => Number.isFinite(value) && value >= 0.1 && value <= 16)
+      .map((value) => Number(value.toFixed(2)));
+    const unique = [...new Set(normalized)].sort((a, b) => a - b);
+    return unique.length >= 4 ? unique : [0.5, 1, 1.5, 2, 2.5, 3, 4, 8];
+  }
+
   function updateTranscriptButton() {
     if (!currentUi) return;
     const visible = Boolean(state.ui?.panel?.isConnected);
@@ -489,15 +498,24 @@
     const presets = document.createElement("div");
     presets.className = "ytx-player-speed-menu__presets";
     const speedPresets = [];
-    [0.5, 1, 1.5, 2, 2.5, 3, 4, 8].forEach((rate) => {
-      const preset = document.createElement("button");
-      preset.type = "button";
-      preset.textContent = String(rate).replace(".", ",");
-      preset.dataset.rate = String(rate);
-      preset.addEventListener("click", () => setSpeed(rate));
-      presets.appendChild(preset);
-      speedPresets.push(preset);
-    });
+    const renderSpeedPresets = (values) => {
+      const rates = normalizeSpeedPresets(values);
+      presets.replaceChildren();
+      speedPresets.splice(0);
+      presets.style.gridTemplateColumns = `repeat(${rates.length <= 4 ? rates.length : 4}, 1fr)`;
+      rates.forEach((rate) => {
+        const preset = document.createElement("button");
+        preset.type = "button";
+        preset.textContent = String(rate).replace(".", ",");
+        preset.dataset.rate = String(rate);
+        preset.addEventListener("click", () => setSpeed(rate));
+        presets.appendChild(preset);
+        speedPresets.push(preset);
+      });
+      const selected = Number(speedInput.value) || 1;
+      speedPresets.forEach((preset) => preset.classList.toggle("ytx-speed-preset--active", Number(preset.dataset.rate) === selected));
+    };
+    renderSpeedPresets([0.5, 1, 1.5, 2, 2.5, 3, 4, 8]);
     speedMenu.append(speedHeading, speedValue, sliderRow, presets, speedError);
     player.appendChild(speedMenu);
 
@@ -545,18 +563,25 @@
     document.addEventListener("click", onDocumentClick, true);
     document.addEventListener("keydown", onDocumentKeyDown, true);
     ["keydown", "keyup", "keypress"].forEach((type) => window.addEventListener(type, blockSpeedShortcuts, true));
-    currentUi = { player, group, transcriptButton, speedButton, notesButton, notesCount, addNoteButton, speedMenu, speedInput, speedSlider, speedValue, speedPresets, speedError, video, onDurationChange, onDocumentPointerMove, onDocumentClick, onDocumentKeyDown, blockSpeedShortcuts };
+    currentUi = { player, group, transcriptButton, speedButton, notesButton, notesCount, addNoteButton, speedMenu, speedInput, speedSlider, speedValue, speedPresets, renderSpeedPresets, speedError, video, onDurationChange, onDocumentPointerMove, onDocumentClick, onDocumentKeyDown, blockSpeedShortcuts };
     transcriptButton.addEventListener("click", toggleTranscript);
     notesButton.addEventListener("click", () => openNotes(false));
     addNoteButton.addEventListener("click", openPlayerNoteEditor);
     speedButton.addEventListener("click", () => {
-      speedMenu.hidden = !speedMenu.hidden;
+      const opening = speedMenu.hidden;
+      speedMenu.hidden = !opening;
       speedButton.setAttribute("aria-expanded", String(!speedMenu.hidden));
+      if (opening) {
+        chrome.storage.local.get({ speedPresets: [0.5, 1, 1.5, 2, 2.5, 3, 4, 8] }, (stored) => {
+          if (currentUi?.renderSpeedPresets === renderSpeedPresets) renderSpeedPresets(stored.speedPresets);
+        });
+      }
     });
     down.addEventListener("click", () => setSpeed(Number(speedInput.value) - 0.25));
     up.addEventListener("click", () => setSpeed(Number(speedInput.value) + 0.25));
     speedSlider.addEventListener("input", () => setSpeed(speedSlider.value));
-    chrome.storage.local.get({ lastSpeed: 1, rememberPlaybackSpeed: true }, (stored) => {
+    chrome.storage.local.get({ lastSpeed: 1, rememberPlaybackSpeed: true, speedPresets: [0.5, 1, 1.5, 2, 2.5, 3, 4, 8] }, (stored) => {
+      if (currentUi?.renderSpeedPresets === renderSpeedPresets) renderSpeedPresets(stored.speedPresets);
       setSpeed(stored.rememberPlaybackSpeed === false ? 1 : (stored.lastSpeed || 1));
     });
     updateTranscriptButton();
@@ -625,6 +650,7 @@
         currentUi.speedValue.value = String(value);
         currentUi.speedPresets.forEach((preset) => preset.classList.toggle("ytx-speed-preset--active", Number(preset.dataset.rate) === value));
       }
+      if (changes.speedPresets && currentUi) currentUi.renderSpeedPresets(changes.speedPresets.newValue);
       if (changes.ytxSavedNotes) setTimeout(() => ytx.notes.loadCurrent(), 0);
     };
     chrome.storage.onChanged.addListener(storageListener);
