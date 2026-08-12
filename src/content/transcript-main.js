@@ -68,7 +68,7 @@
     chrome.storage.onChanged.addListener(onStorageChanged);
 
     try {
-      await injectPageScript("src/utils/transcript-parser.js");
+      await injectPageScript("src/transcript/transcript-parser.js");
       await injectPageScript("src/injected/transcript-network.js");
       chrome.storage.local.get({
         transcriptEnabled: true,

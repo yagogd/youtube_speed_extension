@@ -4,7 +4,7 @@ const {
   normalizeJson3Events,
   groupCuesIntoBlocks,
   blocksForMode,
-} = require("../src/utils/transcript-parser.js");
+} = require("../src/transcript/transcript-parser.js");
 
 function cue(startMs, endMs, text) {
   return { startMs, endMs, durationMs: endMs - startMs, text };

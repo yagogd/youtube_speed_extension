@@ -1,0 +1,59 @@
+.unified-shortcut-row {
+  display: grid;
+  grid-template-columns: 44px 74px 46px 58px minmax(60px, 1fr);
+  align-items: stretch;
+  gap: 6px;
+}
+
+.unified-shortcut-row[data-type="pause"] {
+  grid-template-columns: 58px minmax(110px, 1fr) 70px;
+}
+
+.unified-shortcut-row[data-type="pause-rewind"] {
+  grid-template-columns: 58px minmax(120px, 1fr) 70px;
+  grid-template-areas: "key type add" "seconds mode add";
+}
+
+.unified-shortcut-row[data-type="pause-rewind"] #shortcut-key {
+  grid-area: key;
+}
+
+.unified-shortcut-row[data-type="pause-rewind"] #shortcut-type {
+  grid-area: type;
+}
+
+.unified-shortcut-row[data-type="pause-rewind"] #pause-shortcut-seconds {
+  grid-area: seconds;
+}
+
+.unified-shortcut-row[data-type="pause-rewind"] #pause-shortcut-mode {
+  grid-area: mode;
+}
+
+.unified-shortcut-row[data-type="pause-rewind"] #shortcut-add {
+  grid-area: add;
+}
+
+.unified-shortcut-row > * {
+  min-width: 0;
+  min-height: 52px!important;
+  margin: 0!important;
+  padding-left: 5px;
+  padding-right: 5px;
+  font-size: 11px;
+}
+
+.unified-shortcut-row input[type="number"] {
+  appearance: textfield;
+  text-align: center;
+}
+
+.unified-shortcut-row input[type="number"]::-webkit-inner-spin-button, .unified-shortcut-row input[type="number"]::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.shortcut-extra[hidden] {
+  display: none!important;
+}
+

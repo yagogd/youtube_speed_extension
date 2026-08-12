@@ -1,0 +1,246 @@
+.feature-list {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.feature {
+  border-bottom: 1px solid var(--border);
+}
+
+.feature:last-child {
+  border-bottom: 0;
+}
+
+.feature__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 52px;
+  padding: 9px 11px;
+}
+
+.feature__name strong {
+  display: block;
+  font-size: 13px;
+}
+
+.feature__name span {
+  display: block;
+  margin-top: 1px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feature__expand {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+}
+
+.feature__expand:hover {
+  color: var(--text);
+  background: var(--surface2);
+}
+
+.feature__expand::before, .feature__expand::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: 8px;
+  width: 14px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: currentColor;
+  transition: transform .18s;
+}
+
+.feature__expand::after {
+  transform: rotate(90deg);
+}
+
+.feature__expand[aria-expanded="true"]::after {
+  transform: rotate(0);
+}
+
+.feature__options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 0 11px 11px 50px;
+}
+
+.feature__options[hidden] {
+  display: none;
+}
+
+.feature__options--transcript {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  padding-left: 11px;
+}
+
+.feature__options--transcript select {
+  padding-right: 5px;
+  font-size: 10.5px;
+}
+
+.feature__options--pause {
+  grid-template-columns: 1fr;
+  padding-left: 11px;
+}
+
+.quick-rewind-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.quick-rewind-row > strong {
+  flex: 0 0 auto;
+  font-size: 11.5px;
+}
+
+.quick-rewind-value {
+  position: relative;
+  flex: 0 0 72px;
+}
+
+.quick-rewind-value input {
+  width: 100%;
+  min-height: 32px;
+  padding: 5px 23px 5px 7px;
+  text-align: center;
+}
+
+.quick-rewind-value span {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 10px;
+  pointer-events: none;
+}
+
+.quick-rewind-row select {
+  width: 116px;
+  min-height: 32px;
+  margin-left: auto;
+  padding: 5px 7px;
+  font-size: 11px;
+}
+
+.quick-pause-shortcuts {
+  display: grid;
+  gap: 7px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+}
+
+.quick-pause-shortcuts__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.quick-pause-shortcuts__heading strong {
+  display: block;
+  font-size: 11.5px;
+}
+
+.quick-pause-shortcuts__heading span {
+  display: block;
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.quick-pause-shortcuts > .quick-shortcut-list, .quick-pause-shortcuts > .feature__settings-link {
+  width: calc(100% - 39px);
+  margin-left: 39px;
+}
+
+.feature__options .field {
+  margin-top: 0;
+}
+
+.feature__options--single {
+  grid-template-columns: 1fr;
+}
+
+.feature__settings-link {
+  width: 100%;
+  min-height: 32px;
+}
+
+.quick-shortcut-list {
+  display: grid;
+  gap: 6px;
+}
+
+.quick-shortcut {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface2);
+}
+
+.quick-shortcut__info {
+  min-width: 0;
+}
+
+.quick-shortcut__info strong {
+  display: block;
+  overflow: hidden;
+  color: #a9c8ff;
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-shortcut__info span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.quick-shortcut .switch {
+  transform: scale(.86);
+  transform-origin: right center;
+}
+
+.quick-shortcut-empty {
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.main-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.notes-main-button {
+  min-height: 46px;
+  border-color: rgba(250, 204, 21, .22);
+  background: rgba(250, 204, 21, .08);
+  color: #f9df75;
+  font-weight: 650;
+}

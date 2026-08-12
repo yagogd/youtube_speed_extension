@@ -19,18 +19,20 @@
       "css": ["src/ui/transcript.css"],
       "js": [
         "src/utils/i18n.js",
-        "src/utils/transcript-parser.js",
+        "src/transcript/transcript-parser.js",
         "src/content/namespace.js",
         "src/utils/time.js",
         "src/ui/panel-drag.js",
         "src/ui/panel-resize.js",
         "src/transcript/transcript-search.js",
         "src/notes/video-notes.js",
+        "src/ui/track-selector.js",
+        "src/ui/panel-view.js",
         "src/ui/transcript-panel.js",
         "src/ui/player/note-markers.js",
         "src/ui/player/note-editor.js",
         "src/ui/player/speed-menu.js",
-        "src/ui/player-controls.js",
+        "src/ui/player/controls.js",
         "src/transcript/transcript-sync.js",
         "src/transcript/transcript-renderer.js",
         "src/content/message-bridge.js",
@@ -47,7 +49,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/injected/transcript-network.js", "src/utils/transcript-parser.js"],
+      "resources": ["src/injected/transcript-network.js", "src/transcript/transcript-parser.js"],
       "matches": ["https://www.youtube.com/*"]
     }
   ],
