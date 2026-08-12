@@ -38,17 +38,17 @@
     },
     {
       "matches": ["https://www.youtube.com/*"],
-      "js": ["content_script.js"],
+      "js": ["src/content/playback-controller.js"],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["inject.js", "src/utils/transcript-parser.js"],
+      "resources": ["src/injected/transcript-network.js", "src/utils/transcript-parser.js"],
       "matches": ["https://www.youtube.com/*"]
     }
   ],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "src/popup/popup.html"
   }
 }

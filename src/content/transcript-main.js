@@ -69,7 +69,7 @@
 
     try {
       await injectPageScript("src/utils/transcript-parser.js");
-      await injectPageScript("inject.js");
+      await injectPageScript("src/injected/transcript-network.js");
       chrome.storage.local.get({
         transcriptEnabled: true,
         extensionEnabled: true,

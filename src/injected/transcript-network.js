@@ -170,9 +170,6 @@
     processedUrls.add(url);
     lastFailureKind = null;
     const videoIdAtDetection = currentVideoId;
-    window.ultimaUrlSubtitulos = url;
-    console.log("[Transcript] URL detectada:", url);
-
     let controller = null;
     try {
       if (force) activeFetchController?.abort();
@@ -180,14 +177,6 @@
       activeFetchController = controller;
       const response = await fetch(url, { credentials: "include", signal: controller.signal });
       const text = await response.text();
-      window.ultimaRespuestaSubtitulos = text;
-
-      console.log("[Transcript] Respuesta:", {
-        status: response.status,
-        ok: response.ok,
-        length: text.length,
-      });
-
       if (response.status === 429) {
         const retryAfter = Number(response.headers.get("retry-after"));
         rateLimitedUntil = Date.now() + (Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 30000);
@@ -211,8 +200,6 @@
 
       transcriptCompleted = true;
       if (!availableTracks.length) collectTracks();
-      window.ultimaTranscripcion = cues.map((cue) => cue.text).join(" ");
-
       lastReadyPayload = {
         type: "YT_TRANSCRIPT_READY",
         videoId: currentVideoId,
@@ -233,7 +220,6 @@
     } catch (error) {
       if (error?.name === "AbortError" || generation !== requestGeneration) return false;
       console.error("[Transcript] Error:", error);
-      window.ultimoErrorSubtitulos = String(error.message || error);
       if (videoIdAtDetection === currentVideoId) {
         post({ type: "YT_TRANSCRIPT_ERROR", message: String(error.message || error) });
         restoreSubtitleState();

@@ -104,6 +104,12 @@
     .popup-notice { position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(5,7,11,.72); backdrop-filter:blur(5px); }
     .popup-notice__box { width:100%; padding:18px; border:1px solid var(--border); border-radius:14px; background:var(--surface); box-shadow:0 18px 45px rgba(0,0,0,.35); text-align:center; }
     .popup-notice__box p { margin:0 0 14px; color:var(--text); line-height:1.5; } .popup-notice__box button { min-width:94px; }
+    .popup-confirm__title { display:block; margin-bottom:7px; color:var(--text); font-size:14px; }
+    .popup-confirm__actions { display:flex; justify-content:flex-end; gap:8px; }
+    .popup-confirm__actions button { min-width:88px; }
+    .popup-confirm__delete { min-height:36px; padding:7px 11px; border:1px solid rgba(239,68,68,.3); border-radius:9px; color:#ffc2be; background:rgba(239,68,68,.16); }
+    .popup-confirm__delete:hover { color:#fff; background:rgba(239,68,68,.26); }
+    body.popup-light .popup-confirm__delete { color:#a83431; background:#fff0ef; }
     .appearance-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; } input[type="color"] { width:100%; height:36px; margin-top:5px; padding:3px; border:1px solid var(--border); border-radius:9px; background:var(--surface2); } input[type="range"] { width:100%; margin-top:9px; accent-color:var(--accent); }
     #settings-view details:has(#pause-rewind-enabled) { display:none; }
     #settings-view details:has(#transcript-enabled) .settings-body > .toggle { display:none; }
@@ -159,7 +165,7 @@
       <details class="card"><summary><span class="section-icon">▱</span><span class="section-title"><strong>Panel de transcripción</strong><span>Apariencia, posición y tamaño</span></span></summary><div class="settings-body"><div class="appearance-grid"><label class="field">Fondo<input id="panel-background" type="color" value="#1e1e22" /></label><label class="field">Texto<input id="panel-text-color" type="color" value="#e4e4e7" /></label></div><label class="field">Tipo de letra<select id="panel-font"><option value="Inter, Roboto, Arial, sans-serif">Moderna</option><option value="Arial, sans-serif">Arial</option><option value="Georgia, serif">Georgia</option><option value="Verdana, sans-serif">Verdana</option><option value="ui-monospace, Consolas, monospace">Monoespaciada</option></select></label><div class="appearance-grid"><label class="field">Tamaño<input id="panel-font-size" type="number" min="10" max="22" step="0.5" value="13.5" /></label><label class="field">Opacidad<input id="panel-opacity" type="range" min="0.35" max="1" step="0.05" value="0.84" /></label></div><button id="reset-panel-appearance" class="secondary wide-button" style="margin-top:12px">Restaurar apariencia</button><p class="section-copy" style="margin-top:14px">La disposición actual se recuerda automáticamente entre sesiones.</p><button id="reset-panel-layout" class="danger wide-button" style="margin-top:10px">Restablecer posición y tamaño</button><div id="settings-status" class="status" role="status"></div></div></details>
     </div>
   </main>
-  <script src="src/utils/i18n.js"></script>
-  <script src="popup.js"></script>
+  <script src="../utils/i18n.js"></script>
+  <script type="module" src="main.js"></script>
 </body>
 </html>

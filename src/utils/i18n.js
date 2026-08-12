@@ -85,7 +85,8 @@
     "⚠️ No se recibió respuesta del script.": "⚠️ No response was received from the script.", "Error al enviar mensaje a la pestaña.": "Error sending a message to the tab.",
     "No puedes asignar una velocidad superior a 16×.": "You cannot assign a speed above 16×.",
     "Asigna una tecla e introduce una velocidad válida.": "Assign a key and enter a valid speed.", "Asigna una tecla.": "Assign a key.",
-    "¿Quieres eliminar esta nota? Esta acción no se puede deshacer.": "Do you want to delete this note? This action cannot be undone."
+    "¿Quieres eliminar esta nota? Esta acción no se puede deshacer.": "Do you want to delete this note? This action cannot be undone.",
+    "Confirmar eliminación": "Confirm deletion", "Eliminar nota": "Delete note"
   };
   const ES = Object.fromEntries(Object.entries(EN).map(([es, en]) => [en, es]));
   const originalText = new WeakMap();

@@ -76,6 +76,53 @@
     accept.focus();
   }
 
+  function confirmAction(message) {
+    const panel = state.ui?.panel;
+    if (!panel) return Promise.resolve(false);
+    panel.querySelector(".ytx-notice")?.remove();
+    return new Promise((resolve) => {
+      const notice = document.createElement("div");
+      notice.className = "ytx-notice ytx-confirm";
+      notice.setAttribute("role", "alertdialog");
+      notice.setAttribute("aria-modal", "true");
+      notice.setAttribute("aria-label", "Confirmar eliminación");
+      const title = document.createElement("strong");
+      title.className = "ytx-confirm__title";
+      title.textContent = "Eliminar nota";
+      const text = document.createElement("p");
+      text.textContent = message;
+      const actions = document.createElement("div");
+      actions.className = "ytx-confirm__actions";
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "ytx-button ytx-confirm__cancel";
+      cancel.textContent = "Cancelar";
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "ytx-button ytx-confirm__delete";
+      remove.textContent = "Eliminar";
+      let settled = false;
+      const close = (confirmed) => {
+        if (settled) return;
+        settled = true;
+        notice.remove();
+        resolve(confirmed);
+      };
+      cancel.addEventListener("click", () => close(false));
+      remove.addEventListener("click", () => close(true));
+      notice.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          close(false);
+        }
+      });
+      actions.append(cancel, remove);
+      notice.append(title, text, actions);
+      panel.appendChild(notice);
+      cancel.focus();
+    });
+  }
+
   function applyStoredGeometry(panel, geometry) {
     if (!geometry) return null;
     const maxWidth = Math.max(300, Math.min(window.innerWidth * 0.7, window.innerWidth - 16));
@@ -552,5 +599,5 @@
     ui.content.replaceChildren(paragraph);
   }
 
-  ytx.panel = { create: createPanel, remove: removePanel, ensure: ensurePanel, setTitle, showMessage, showNotice, updateTrackSelector, applyAppearance, setButtonIcon, labelButton };
+  ytx.panel = { create: createPanel, remove: removePanel, ensure: ensurePanel, setTitle, showMessage, showNotice, confirmAction, updateTrackSelector, applyAppearance, setButtonIcon, labelButton };
 })();

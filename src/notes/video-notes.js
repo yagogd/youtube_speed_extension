@@ -143,8 +143,9 @@
         deleteButton.className = "ytx-note-item__delete";
         ytx.panel.setButtonIcon(deleteButton, "trash");
         ytx.panel.labelButton(deleteButton, "Eliminar nota");
-        deleteButton.addEventListener("click", () => {
-          if (window.confirm("¿Quieres eliminar esta nota? Esta acción no se puede deshacer.")) remove(item.id);
+        deleteButton.addEventListener("click", async () => {
+          const confirmed = await ytx.panel.confirmAction("¿Quieres eliminar esta nota? Esta acción no se puede deshacer.");
+          if (confirmed) remove(item.id);
         });
         const editButton = document.createElement("button");
         editButton.className = "ytx-note-item__edit";

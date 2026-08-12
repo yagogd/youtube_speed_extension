@@ -400,6 +400,13 @@
 }
 .ytx-notice p { max-width: 320px; margin: 0; font-size: 13px; line-height: 1.5; }
 .ytx-notice__accept { min-width: 88px; color: #fff; background: #3ea6ff; }
+.ytx-confirm { gap: 10px; background: rgba(12, 12, 15, .94); }
+.ytx-confirm__title { color: var(--ytx-panel-text, #f4f4f5); font-size: 15px; font-weight: 700; }
+.ytx-confirm__actions { display:flex; justify-content:center; gap:8px; margin-top:4px; }
+.ytx-confirm__actions .ytx-button { min-width:82px; padding:7px 13px; border-radius:8px; }
+.ytx-confirm__cancel { color:#d4d4d8; background:rgba(255,255,255,.09); }
+.ytx-confirm__delete { color:#ffd3d0; border-color:rgba(239,68,68,.32); background:rgba(239,68,68,.18); }
+.ytx-confirm__delete:hover { color:#fff; background:rgba(239,68,68,.3); }
 
 .ytx-resize-handle { position: absolute; z-index: 3; }
 .ytx-resize-handle--left { top: 12px; bottom: 12px; left: -3px; width: 7px; cursor: ew-resize; }
