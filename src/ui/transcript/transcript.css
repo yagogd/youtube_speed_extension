@@ -1,5 +1,14 @@
 .ytx-no-select { user-select: none !important; }
 
+/* La extensión puede activar internamente captions para obtener su petición de red.
+   Su capa visual permanece oculta durante todo ese proceso. */
+#movie_player.ytx-caption-request-active .ytp-caption-window-container,
+#movie_player.ytx-caption-request-active .caption-window,
+#movie_player.ytx-caption-request-active .captions-text { visibility: hidden !important; opacity: 0 !important; }
+html:has(#yt-transcript-panel) .ytp-caption-window-container,
+html:has(#yt-transcript-panel) .caption-window,
+html:has(#yt-transcript-panel) .captions-text { visibility: hidden !important; opacity: 0 !important; }
+
 .ytx-panel {
   position: fixed;
   top: 72px;
@@ -63,11 +72,17 @@
 .ytx-panel__header .ytx-track-selector label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 .ytx-panel__header .ytx-track-selector input { box-sizing:border-box; width:100%; min-width:0; height:36px; padding:0 10px; border:1px solid rgba(255,255,255,.09); border-radius:8px; outline:0; color:#f4f4f5; background:rgba(0,0,0,.16); font:inherit; font-size:11px; font-weight:650; cursor:text; text-overflow:ellipsis; }
 .ytx-panel__header .ytx-track-selector input:hover:not(:disabled),.ytx-panel__header .ytx-track-selector input:focus { border-color:rgba(93,181,255,.42); background:rgba(255,255,255,.07); }
+.ytx-panel__header .ytx-track-selector input:-webkit-autofill,
+.ytx-panel__header .ytx-track-selector input:-webkit-autofill:hover,
+.ytx-panel__header .ytx-track-selector input:-webkit-autofill:focus { -webkit-text-fill-color:#f4f4f5; caret-color:#f4f4f5; -webkit-box-shadow:0 0 0 1000px rgba(18,18,21,.98) inset; transition:background-color 9999s ease-out 0s; }
 .ytx-panel__header .ytx-track-selector input:disabled { opacity:1; cursor:default; }
 .ytx-panel__header .ytx-track-selector__menu { position:absolute; top:calc(100% + 5px); left:0; right:0; max-height:min(260px, 50vh); padding:5px; overflow-y:auto; border:1px solid rgba(255,255,255,.13); border-radius:9px; background:rgba(18,18,21,.97); box-shadow:0 12px 30px rgba(0,0,0,.45); z-index:20; }
 .ytx-panel__header .ytx-track-selector__menu[hidden] { display:none; }
 .ytx-panel__header .ytx-track-selector__option { display:block; width:100%; min-height:34px; padding:7px 9px; border:0; border-radius:6px; color:#e4e4e7; background:transparent; font:inherit; font-size:11px; text-align:left; cursor:pointer; }
 .ytx-panel__header .ytx-track-selector__option:hover,.ytx-panel__header .ytx-track-selector__option:focus-visible { color:#fff; background:rgba(255,255,255,.11); outline:none; }
+.ytx-panel__header .ytx-track-selector__separator { height:1px; margin:5px 6px; background:rgba(255,255,255,.13); }
+.ytx-panel__header .ytx-track-selector__separator[hidden] { display:none; }
+.ytx-panel__header .ytx-track-selector__option--favorite { color:#fff; font-weight:700; background:rgba(93,181,255,.075); }
 .ytx-panel__header .ytx-track-selector__option[hidden] { display:none; }
 
 .ytx-panel__actions {

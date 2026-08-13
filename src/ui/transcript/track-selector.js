@@ -7,6 +7,31 @@
     return String(value || "").replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim();
   }
 
+  function normalizeLanguage(value) {
+    return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().trim();
+  }
+
+  const spanishLanguageNames = new Intl.DisplayNames(["es"], { type: "language" });
+  const englishLanguageNames = new Intl.DisplayNames(["en"], { type: "language" });
+
+  function languageAliases(track) {
+    const code = String(track.languageCode || "");
+    const baseCode = code.split("-")[0];
+    const aliases = [code, baseCode, baseLanguageName(track.languageName)];
+    [code, baseCode].forEach((candidate) => {
+      try {
+        aliases.push(spanishLanguageNames.of(candidate), englishLanguageNames.of(candidate));
+      } catch (_) { /* Un código desconocido se compara con los datos originales. */ }
+    });
+    return new Set(aliases.filter(Boolean).map(normalizeLanguage));
+  }
+
+  function trackMatchesFavorite(track, favoriteLanguage) {
+    const favorite = normalizeLanguage(favoriteLanguage);
+    if (!favorite) return false;
+    return [...languageAliases(track)].some((alias) => alias === favorite || alias.startsWith(`${favorite}-`));
+  }
+
   function createView() {
     const trackSelector = document.createElement("div");
     trackSelector.className = "ytx-track-selector";
@@ -17,6 +42,9 @@
     const trackSelect = document.createElement("input");
     trackSelect.id = "ytx-transcript-track";
     trackSelect.type = "search";
+    trackSelect.autocomplete = "off";
+    trackSelect.name = `ytx-language-search-${chrome.runtime.id}`;
+    trackSelect.spellcheck = false;
     trackSelect.placeholder = "Idioma…";
     trackSelect.setAttribute("aria-label", "Pista de subtítulos");
     trackSelect.setAttribute("aria-haspopup", "listbox");
@@ -42,6 +70,13 @@
       if (!current || trackPriority(track) < trackPriority(current)) tracksByLanguage.set(key, track);
     });
     const selectableTracks = Array.from(tracksByLanguage.values());
+    const favoriteLanguages = Array.isArray(state.settings.favoriteLanguages) ? state.settings.favoriteLanguages : ["es", "en"];
+    const languageIsFavorite = (track) => favoriteLanguages.some((language) => trackMatchesFavorite(track, language));
+    const favoriteIndex = (track) => favoriteLanguages.findIndex((language) => trackMatchesFavorite(track, language));
+    const favoriteTracks = selectableTracks.filter(languageIsFavorite)
+      .sort((left, right) => favoriteIndex(left) - favoriteIndex(right));
+    const regularTracks = selectableTracks.filter((track) => !languageIsFavorite(track));
+    const orderedTracks = [...favoriteTracks, ...regularTracks];
     ui.trackDatalist.replaceChildren();
     ui.trackMenu.replaceChildren();
     if (!tracks.length) {
@@ -49,7 +84,13 @@
         ? baseLanguageName(state.transcript.languageName)
         : (ui.title.dataset.fullTitle || "Cargando subtítulos…");
     }
-    selectableTracks.forEach((track) => {
+    orderedTracks.forEach((track, index) => {
+      if (index === favoriteTracks.length && favoriteTracks.length && regularTracks.length) {
+        const separator = document.createElement("div");
+        separator.className = "ytx-track-selector__separator";
+        separator.setAttribute("role", "separator");
+        ui.trackMenu.appendChild(separator);
+      }
       const option = document.createElement("option");
       option.value = baseLanguageName(track.languageName) || track.languageCode;
       option.dataset.trackId = track.id;
@@ -60,6 +101,7 @@
       menuOption.dataset.trackId = track.id;
       menuOption.dataset.value = option.value;
       menuOption.setAttribute("role", "option");
+      menuOption.classList.toggle("ytx-track-selector__option--favorite", languageIsFavorite(track));
       menuOption.textContent = option.value;
       ui.trackMenu.appendChild(menuOption);
     });
@@ -97,10 +139,20 @@
       selectTrack(option?.dataset.trackId, option?.value);
     };
     const onTrackFocus = () => trackSelect.select();
-    const onTrackClick = () => {
+    const openTrackMenu = () => {
       trackMenu.querySelectorAll(".ytx-track-selector__option").forEach((option) => { option.hidden = false; });
+      trackMenu.querySelector(".ytx-track-selector__separator")?.removeAttribute("hidden");
       trackMenu.hidden = false;
       trackSelect.setAttribute("aria-expanded", "true");
+    };
+    const onTrackClick = () => {
+      chrome.storage.local.get({ transcriptFavoriteLanguages: ["es", "en"] }, (stored) => {
+        const latestFavorites = Array.isArray(stored.transcriptFavoriteLanguages)
+          ? stored.transcriptFavoriteLanguages : ["es", "en"];
+        state.settings.favoriteLanguages = latestFavorites;
+        update(ui);
+        openTrackMenu();
+      });
     };
     const onTrackInput = () => {
       const query = trackSelect.value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
@@ -108,6 +160,9 @@
         const value = option.dataset.value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
         option.hidden = Boolean(query) && !value.includes(query);
       });
+      const visibleFavorites = trackMenu.querySelector(".ytx-track-selector__option--favorite:not([hidden])");
+      const visibleRegular = trackMenu.querySelector(".ytx-track-selector__option:not(.ytx-track-selector__option--favorite):not([hidden])");
+      trackMenu.querySelector(".ytx-track-selector__separator")?.toggleAttribute("hidden", !(visibleFavorites && visibleRegular));
       trackMenu.hidden = false;
       trackSelect.setAttribute("aria-expanded", "true");
     };

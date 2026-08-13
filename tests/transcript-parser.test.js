@@ -38,6 +38,17 @@ test("limpia saltos y espacios duplicados", () => {
   assert.equal(result.text, "Hola mundo");
 });
 
+test("elimina etiquetas de formato incluidas en el texto", () => {
+  const [result] = normalizeJson3Events({
+    events: [{
+      tStartMs: 0,
+      dDurationMs: 1000,
+      segs: [{ utf8: "<b>Hola</b> <i>mundo</i> &lt;b&gt;sin etiquetas&lt;/b&gt;" }],
+    }],
+  });
+  assert.equal(result.text, "Hola mundo sin etiquetas");
+});
+
 test("elimina anotaciones sonoras entre corchetes", () => {
   const [result] = normalizeJson3Events({
     events: [{

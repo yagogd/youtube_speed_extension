@@ -13,6 +13,8 @@
 
   function normalizeText(value) {
     return String(value || "")
+      .replace(/<\/?(?:b|i|u|em|strong|font|ruby|rt|c)(?:\s[^<>]*)?>/gi, "")
+      .replace(/&lt;\/?(?:b|i|u|em|strong|ruby|rt|c)&gt;/gi, "")
       .replace(/\[([^\]\r\n]*)\]/g, (match, content) => content.trim() === "_" ? match : " ")
       .replace(/\n+/g, " ")
       .replace(/\s+/g, " ")
