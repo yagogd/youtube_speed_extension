@@ -15,6 +15,19 @@
   let preferredLanguage = "auto";
   let lastReadyPayload = null;
   let availableTracks = [];
+  let buttonTimer = null;
+  const pendingTimers = new Set();
+  let observerActive = false;
+  let observerStarted = false;
+
+  function schedule(callback, delay) {
+    const timer = setTimeout(() => {
+      pendingTimers.delete(timer);
+      callback();
+    }, delay);
+    pendingTimers.add(timer);
+    return timer;
+  }
 
   function post(payload) {
     window.postMessage({ source: "YT_TRANSCRIPT_EXTENSION", ...payload }, "*");
@@ -235,10 +248,30 @@
       if (entry.name.includes("/api/timedtext")) processTimedTextUrl(entry.name);
     }
   });
-  observer.observe({ type: "resource", buffered: true });
+
+  function startObserver() {
+    if (observerActive) return;
+    observer.observe(observerStarted ? { type: "resource" } : { type: "resource", buffered: true });
+    observerActive = true;
+    observerStarted = true;
+  }
+
+  function stopBackgroundWork() {
+    requestGeneration += 1;
+    activeFetchController?.abort();
+    activeFetchController = null;
+    if (buttonTimer) clearInterval(buttonTimer);
+    buttonTimer = null;
+    pendingTimers.forEach((timer) => clearTimeout(timer));
+    pendingTimers.clear();
+    observer.disconnect();
+    observerActive = false;
+    restoreSubtitleState();
+  }
 
   async function requestTranscript(force = false) {
     if (!enabled) return;
+    startObserver();
     const nextVideoId = videoIdFromLocation();
     if (!force && nextVideoId && nextVideoId === currentVideoId && (transcriptCompleted || activeFetchController)) return;
 
@@ -268,9 +301,11 @@
     }
 
     let attempts = 0;
-    const buttonTimer = setInterval(() => {
+    if (buttonTimer) clearInterval(buttonTimer);
+    buttonTimer = setInterval(() => {
       if (generation !== requestGeneration || transcriptCompleted) {
         clearInterval(buttonTimer);
+        buttonTimer = null;
         return;
       }
 
@@ -278,10 +313,11 @@
       const button = document.querySelector(".ytp-subtitles-button");
       if (button) {
         clearInterval(buttonTimer);
+        buttonTimer = null;
         const alreadyEnabled = button.getAttribute("aria-pressed") === "true";
         if (alreadyEnabled) {
           button.click();
-          setTimeout(() => {
+          schedule(() => {
             if (generation === requestGeneration && !transcriptCompleted) button.click();
           }, 120);
         } else {
@@ -289,7 +325,7 @@
           button.click();
         }
 
-        setTimeout(() => {
+        schedule(() => {
           if (generation === requestGeneration && !transcriptCompleted) {
             post({
               type: "YT_TRANSCRIPT_ERROR",
@@ -300,6 +336,7 @@
         }, 12000);
       } else if (attempts >= 40) {
         clearInterval(buttonTimer);
+        buttonTimer = null;
         post({
           type: "YT_TRANSCRIPT_UNAVAILABLE",
           videoId: currentVideoId,
@@ -312,6 +349,10 @@
     if (event.source !== window || event.data?.source !== "YT_TRANSCRIPT_CONTROL") return;
     enabled = Boolean(event.data.enabled);
     preferredLanguage = event.data.preferredLanguage || preferredLanguage || "auto";
+    if (!enabled) {
+      stopBackgroundWork();
+      return;
+    }
     if (event.data.selectTrackId) {
       const selected = availableTracks.find((track) => track.id === event.data.selectTrackId) || collectTracks().find((track) => track.id === event.data.selectTrackId);
       if (enabled && selected) {
@@ -325,12 +366,8 @@
       }
       return;
     }
-    if (enabled) {
-      requestTranscript();
-    } else {
-      requestGeneration += 1;
-      restoreSubtitleState();
-    }
+    startObserver();
+    requestTranscript();
   });
 
   window.addEventListener("yt-navigate-finish", () => requestTranscript());

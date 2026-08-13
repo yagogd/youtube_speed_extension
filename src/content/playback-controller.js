@@ -47,6 +47,7 @@
   }
 
   function applyCurrentRateWithRetry() {
+    if (!extensionEnabled) return;
     if (retryTimer) clearInterval(retryTimer);
     let attempts = 0;
     const apply = () => {
@@ -161,13 +162,17 @@
     if (area !== "local") return;
     if (changes.lastSpeed) {
       preferredRate = validRate(changes.lastSpeed.newValue) || preferredRate;
-      if (!heldShortcut) applyCurrentRateWithRetry();
+      if (extensionEnabled && !heldShortcut) applyCurrentRateWithRetry();
     }
     if (changes.extensionEnabled) {
       extensionEnabled = changes.extensionEnabled.newValue !== false;
       heldShortcut = null;
       if (extensionEnabled) applyCurrentRateWithRetry();
-      else applyRate(1, false);
+      else {
+        if (retryTimer) clearInterval(retryTimer);
+        retryTimer = null;
+        applyRate(1, false);
+      }
     }
     if (changes.speedShortcuts) {
       shortcuts = Array.isArray(changes.speedShortcuts.newValue) ? changes.speedShortcuts.newValue : [];
@@ -212,11 +217,12 @@
   window.addEventListener("keydown", onKeyDown, true);
   window.addEventListener("keyup", onKeyUp, true);
   window.addEventListener("yt-navigate-finish", () => {
+    if (!extensionEnabled) return;
     if (!rememberPlaybackSpeed) preferredRate = 1;
     applyCurrentRateWithRetry();
   });
   document.addEventListener("loadedmetadata", (event) => {
-    if (event.target instanceof HTMLVideoElement) {
+    if (extensionEnabled && event.target instanceof HTMLVideoElement) {
       applyRate(heldShortcut?.speed || preferredRate, Boolean(heldShortcut));
     }
   }, true);

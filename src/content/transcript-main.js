@@ -29,7 +29,17 @@
     const needsTranscriptRequest = Boolean(changes.extensionEnabled || changes.transcriptEnabled || changes.transcriptPreferredLanguage);
     if (changes.extensionEnabled) {
       state.settings.extensionEnabled = changes.extensionEnabled.newValue !== false;
-      if (state.settings.extensionEnabled) state.dismissedVideoId = null;
+      if (state.settings.extensionEnabled) {
+        state.dismissedVideoId = null;
+        ytx.bridge.start();
+        ytx.navigation.start();
+        ytx.playerControls.start();
+      } else {
+        ytx.bridge.sendControl();
+        ytx.navigation.stop();
+        ytx.playerControls.stop();
+        ytx.bridge.stop();
+      }
     }
     if (changes.transcriptEnabled) {
       state.settings.enabled = changes.transcriptEnabled.newValue;
@@ -63,8 +73,6 @@
   }
 
   async function start() {
-    ytx.bridge.start();
-    ytx.navigation.start();
     chrome.storage.onChanged.addListener(onStorageChanged);
 
     try {
@@ -98,7 +106,11 @@
           fontSize: stored.transcriptPanelFontSize,
           opacity: stored.transcriptPanelOpacity,
         };
-        ytx.playerControls.start();
+        if (state.settings.extensionEnabled) {
+          ytx.bridge.start();
+          ytx.navigation.start();
+          ytx.playerControls.start();
+        }
         if (state.settings.extensionEnabled && ytx.isWatchPage()) ytx.notes.loadCurrent();
         if (state.settings.extensionEnabled && state.settings.enabled && ytx.isWatchPage()) ytx.panel.ensure();
         ytx.bridge.sendControl();
