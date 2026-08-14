@@ -1,13 +1,10 @@
 .ytx-no-select { user-select: none !important; }
 
-/* La extensión puede activar internamente captions para obtener su petición de red.
-   Su capa visual permanece oculta durante todo ese proceso. */
-#movie_player.ytx-caption-request-active .ytp-caption-window-container,
-#movie_player.ytx-caption-request-active .caption-window,
-#movie_player.ytx-caption-request-active .captions-text { visibility: hidden !important; opacity: 0 !important; }
-html:has(#yt-transcript-panel) .ytp-caption-window-container,
-html:has(#yt-transcript-panel) .caption-window,
-html:has(#yt-transcript-panel) .captions-text { visibility: hidden !important; opacity: 0 !important; }
+/* Oculta únicamente la capa nativa durante la petición firmada temporal. */
+#movie_player.ytx-caption-probe-active .ytp-caption-window-container,
+#movie_player.ytx-caption-probe-active .caption-window,
+#movie_player.ytx-caption-probe-active .captions-text,
+#movie_player.ytx-caption-probe-active .ytp-caption-segment { display: none !important; visibility: hidden !important; opacity: 0 !important; }
 
 .ytx-panel {
   position: fixed;

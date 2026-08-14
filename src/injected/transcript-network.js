@@ -9,18 +9,17 @@
   let activeFetchController = null;
   let lastFailureKind = null;
   let rateLimitedUntil = 0;
-  let subtitlesEnabledByExtension = false;
   let transcriptCompleted = false;
   let enabled = false;
   let preferredLanguage = "auto";
   let lastReadyPayload = null;
   let availableTracks = [];
-  let buttonTimer = null;
   const pendingTimers = new Set();
   let observerActive = false;
   let observerStarted = false;
-  let pendingPlayerTrack = null;
   const silentObservedUrls = new Set();
+  let captionProbe = null;
+  let ignorePlayerCaptionRequestsUntil = 0;
 
   function schedule(callback, delay) {
     const timer = setTimeout(() => {
@@ -33,6 +32,74 @@
 
   function post(payload) {
     window.postMessage({ source: "YT_TRANSCRIPT_EXTENSION", ...payload }, "*");
+  }
+
+  function finishCaptionProbe(success = false) {
+    const probe = captionProbe;
+    if (!probe) return;
+    captionProbe = null;
+    clearTimeout(probe.timeout);
+    pendingTimers.delete(probe.timeout);
+    const player = document.getElementById("movie_player");
+    const button = document.querySelector(".ytp-subtitles-button");
+    ignorePlayerCaptionRequestsUntil = Date.now() + 2500;
+    if (probe.previousTrack) {
+      try { player?.setOption?.("captions", "track", probe.previousTrack); } catch (_) { /* Restauración opcional. */ }
+    }
+    const restore = (attempt = 0) => {
+      const pressed = button?.getAttribute("aria-pressed") === "true";
+      if (button && pressed !== probe.wasEnabled) button.click();
+      const restored = !button || (button.getAttribute("aria-pressed") === "true") === probe.wasEnabled;
+      if (!restored && attempt < 20) {
+        schedule(() => restore(attempt + 1), 100);
+        return;
+      }
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        player?.classList.remove("ytx-caption-probe-active");
+      }));
+    };
+    restore();
+    probe.resolve(success);
+  }
+
+  function requestSignedCaptionUrl(track, generation) {
+    if (!enabled || generation !== requestGeneration || captionProbe) return Promise.resolve(false);
+    const player = document.getElementById("movie_player");
+    const button = document.querySelector(".ytp-subtitles-button");
+    if (!player || !button) return Promise.resolve(false);
+    return new Promise((resolve) => {
+      const wasEnabled = button.getAttribute("aria-pressed") === "true";
+      const previousTrack = player.getOption?.("captions", "track") || null;
+      const sourceCode = track.sourceLanguageCode || track.languageCode;
+      const sourceTrack = playerCaptionTracks().find((candidate) => candidate.languageCode === sourceCode &&
+        (track.isTranslated || (candidate.kind === "asr") === Boolean(track.isAutomatic))) ||
+        playerCaptionTracks().find((candidate) => candidate.languageCode === sourceCode);
+      const requestedTrack = sourceTrack ? { ...sourceTrack } : { languageCode: sourceCode };
+      if (track.isTranslated) {
+        requestedTrack.translationLanguage = playerTranslationLanguages()
+          .find((language) => language.languageCode === track.languageCode) || { languageCode: track.languageCode };
+      }
+      player.classList.add("ytx-caption-probe-active");
+      const timeout = schedule(() => finishCaptionProbe(false), 8000);
+      captionProbe = { generation, wasEnabled, resolve, timeout, previousTrack, track };
+      try {
+        player.loadModule?.("captions");
+        player.setOption?.("captions", "track", requestedTrack);
+      } catch (_) { /* El clic inferior conserva el mecanismo de respaldo. */ }
+      schedule(() => {
+        if (captionProbe?.generation !== generation) return;
+        if (button.getAttribute("aria-pressed") !== "true") button.click();
+      }, 120);
+    });
+  }
+
+  function captionUrlMatchesTrack(url, track) {
+    const parsed = new URL(url);
+    const translated = parsed.searchParams.get("tlang");
+    const language = parsed.searchParams.get("lang") || "";
+    if (track.isTranslated) return translated === track.languageCode;
+    return !translated && (language === track.languageCode || language.startsWith(`${track.languageCode}-`) ||
+      track.languageCode.startsWith(`${language}-`));
   }
 
   function videoIdFromLocation() {
@@ -163,102 +230,6 @@
     return { languageCode, languageName, isAutomatic, isTranslated };
   }
 
-  function suppressPlayerCaptions() {
-    document.getElementById("movie_player")?.classList.add("ytx-caption-request-active");
-  }
-
-  function releasePlayerCaptionSuppression(waitForDisabled = false, attempts = 0) {
-    const player = document.getElementById("movie_player");
-    if (!player) return;
-    const captionsStillVisible = document.querySelector(".ytp-subtitles-button")?.getAttribute("aria-pressed") === "true";
-    if (waitForDisabled && captionsStillVisible && attempts < 20) {
-      schedule(() => releasePlayerCaptionSuppression(true, attempts + 1), 100);
-      return;
-    }
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      player.classList.remove("ytx-caption-request-active");
-    }));
-  }
-
-  function ensureNativeCaptionsAreOff() {
-    suppressPlayerCaptions();
-    const button = document.querySelector(".ytp-subtitles-button");
-    if (button?.getAttribute("aria-pressed") === "true") button.click();
-    releasePlayerCaptionSuppression(true);
-  }
-
-  function restoreSubtitleState() {
-    const trackRequest = pendingPlayerTrack;
-    pendingPlayerTrack = null;
-    if (trackRequest?.previousTrack) {
-      document.getElementById("movie_player")?.setOption?.("captions", "track", trackRequest.previousTrack);
-    }
-    if (!subtitlesEnabledByExtension) {
-      releasePlayerCaptionSuppression(false);
-      return;
-    }
-    const button = document.querySelector(".ytp-subtitles-button");
-    if (button?.getAttribute("aria-pressed") === "true") button.click();
-    subtitlesEnabledByExtension = false;
-    releasePlayerCaptionSuppression(true);
-  }
-
-  function trackMatchesUrl(track, url) {
-    const parsed = new URL(url);
-    const translatedLanguage = parsed.searchParams.get("tlang");
-    if (track.isTranslated) return translatedLanguage === track.languageCode;
-    const requestedLanguage = parsed.searchParams.get("lang") || "";
-    return !translatedLanguage && (requestedLanguage === track.languageCode ||
-      requestedLanguage.startsWith(`${track.languageCode}-`) || track.languageCode.startsWith(`${requestedLanguage}-`));
-  }
-
-  function requestTrackThroughPlayer(track, generation) {
-    const player = document.getElementById("movie_player");
-    if (!player?.setOption) return false;
-    const button = document.querySelector(".ytp-subtitles-button");
-    const captionsWereEnabled = button?.getAttribute("aria-pressed") === "true";
-    const previousTrack = player.getOption?.("captions", "track") || null;
-    const sourceLanguageCode = track.sourceLanguageCode || track.languageCode;
-    const sourceTrack = playerCaptionTracks().find((candidate) => candidate.languageCode === sourceLanguageCode &&
-      (track.isTranslated || (candidate.kind === "asr") === Boolean(track.isAutomatic))) ||
-      playerCaptionTracks().find((candidate) => candidate.languageCode === sourceLanguageCode);
-    const playerTrack = sourceTrack ? { ...sourceTrack } : { languageCode: sourceLanguageCode };
-    if (track.isTranslated) {
-      playerTrack.translationLanguage = playerTranslationLanguages().find((language) => language.languageCode === track.languageCode) ||
-        { languageCode: track.languageCode };
-    }
-    const selectInPlayer = () => {
-      const currentPlayer = document.getElementById("movie_player");
-      if (!currentPlayer?.setOption) return;
-      currentPlayer.loadModule?.("captions");
-      currentPlayer.setOption("captions", "track", playerTrack);
-    };
-    try {
-      pendingPlayerTrack = { track, generation, previousTrack };
-      subtitlesEnabledByExtension = !captionsWereEnabled;
-      suppressPlayerCaptions();
-      selectInPlayer();
-    } catch (error) {
-      pendingPlayerTrack = null;
-      subtitlesEnabledByExtension = false;
-      releasePlayerCaptionSuppression(false);
-      console.error("[Transcript] No se pudo seleccionar la pista en el reproductor:", error);
-      return false;
-    }
-    [1800, 4500].forEach((delay) => schedule(() => {
-      if (!enabled || transcriptCompleted || pendingPlayerTrack?.generation !== generation) return;
-      try { selectInPlayer(); } catch (error) {
-        console.debug("[Transcript] Reintento de pista pendiente:", error);
-      }
-    }, delay));
-    schedule(() => {
-      if (pendingPlayerTrack?.generation !== generation || transcriptCompleted) return;
-      post({ type: "YT_TRANSCRIPT_ERROR", message: "YouTube no devolvió la pista de subtítulos seleccionada." });
-      restoreSubtitleState();
-    }, 12000);
-    return true;
-  }
-
   async function processTimedTextUrl(url, options = {}) {
     const { force = false, selectedTrackId = null, generation = requestGeneration, silentFailure = false, ignoreRateLimit = false } = options;
     if (!enabled || (!force && processedUrls.has(url)) || (!force && transcriptCompleted)) return false;
@@ -325,14 +296,12 @@
       const key = cacheKey(currentVideoId, lastReadyPayload.selectedTrackId);
       if (key) transcriptCache.set(key, lastReadyPayload);
       post(lastReadyPayload);
-      restoreSubtitleState();
       return true;
     } catch (error) {
       if (error?.name === "AbortError" || generation !== requestGeneration) return false;
       if (!silentFailure) console.error("[Transcript] Error:", error);
       if (!silentFailure && videoIdAtDetection === currentVideoId) {
         post({ type: "YT_TRANSCRIPT_ERROR", message: String(error.message || error) });
-        restoreSubtitleState();
       }
       return false;
     } finally {
@@ -344,17 +313,17 @@
     for (const entry of list.getEntries()) {
       if (!entry.name.includes("/api/timedtext")) continue;
       if (silentObservedUrls.delete(entry.name)) continue;
-      const pending = pendingPlayerTrack;
-      if (pending && trackMatchesUrl(pending.track, entry.name)) {
-        processTimedTextUrl(entry.name, {
-          force: true,
-          selectedTrackId: pending.track.id,
-          generation: pending.generation,
-          ignoreRateLimit: true,
-        });
-      } else {
-        processTimedTextUrl(entry.name);
-      }
+      if (!captionProbe && Date.now() < ignorePlayerCaptionRequestsUntil) continue;
+      const probe = captionProbe;
+      if (probe && !captionUrlMatchesTrack(entry.name, probe.track)) continue;
+      processTimedTextUrl(entry.name, probe ? {
+        force: true,
+        selectedTrackId: probe.track.id,
+        generation: probe.generation,
+        ignoreRateLimit: true,
+      } : {}).then((loaded) => {
+        if (probe && captionProbe === probe) finishCaptionProbe(loaded);
+      });
     }
   });
 
@@ -369,14 +338,12 @@
     requestGeneration += 1;
     activeFetchController?.abort();
     activeFetchController = null;
-    if (buttonTimer) clearInterval(buttonTimer);
-    buttonTimer = null;
+    if (captionProbe) finishCaptionProbe(false);
     pendingTimers.forEach((timer) => clearTimeout(timer));
     pendingTimers.clear();
     silentObservedUrls.clear();
     observer.disconnect();
     observerActive = false;
-    restoreSubtitleState();
   }
 
   async function waitForCurrentVideoTracks(generation, timeoutMs = 10000) {
@@ -390,9 +357,126 @@
     return [];
   }
 
+  function transcriptParams(videoId, languageCode) {
+    const encoder = new TextEncoder();
+    const field = (number, value) => {
+      const bytes = encoder.encode(value);
+      return [(number << 3) | 2, bytes.length, ...bytes];
+    };
+    const language = field(1, languageCode || "");
+    const payload = [...field(1, videoId), (2 << 3) | 2, language.length, ...language];
+    return btoa(String.fromCharCode(...payload));
+  }
+
+  function findTranscriptEndpointParams(root) {
+    const seen = new WeakSet();
+    const stack = [root];
+    let inspected = 0;
+    while (stack.length && inspected < 100000) {
+      const value = stack.pop();
+      if (!value || typeof value !== "object" || seen.has(value)) continue;
+      seen.add(value);
+      inspected += 1;
+      const params = value.getTranscriptEndpoint?.params;
+      if (typeof params === "string" && params) return params;
+      if (Array.isArray(value)) stack.push(...value);
+      else Object.values(value).forEach((child) => {
+        if (child && typeof child === "object") stack.push(child);
+      });
+    }
+    return null;
+  }
+
+  function currentTranscriptEndpointParams() {
+    const roots = [
+      document.querySelector("ytd-watch-flexy")?.data,
+      document.querySelector("ytd-app")?.data,
+      window.ytInitialData,
+    ];
+    for (const root of roots) {
+      const params = findTranscriptEndpointParams(root);
+      if (params) return params;
+    }
+    return null;
+  }
+
+  function collectTranscriptCues(value, cues = []) {
+    if (!value || typeof value !== "object") return cues;
+    const renderer = value.transcriptCueRenderer;
+    if (renderer) {
+      const text = renderer.cue?.simpleText || renderer.cue?.runs?.map((run) => run.text).join("") || "";
+      const startMs = Number(renderer.startOffsetMs) || 0;
+      const durationMs = Number(renderer.durationMs) || 0;
+      if (text) cues.push({ tStartMs: startMs, dDurationMs: durationMs, segs: [{ utf8: text }] });
+    }
+    Object.values(value).forEach((child) => collectTranscriptCues(child, cues));
+    return cues;
+  }
+
+  async function loadTrackFromTranscriptApi(track, generation) {
+    const apiKey = window.ytcfg?.get?.("INNERTUBE_API_KEY");
+    const context = window.ytcfg?.get?.("INNERTUBE_CONTEXT");
+    if (!apiKey || !context || !currentVideoId || generation !== requestGeneration) return false;
+    let realParams = currentTranscriptEndpointParams();
+    for (let attempt = 0; !realParams && attempt < 8; attempt += 1) {
+      await new Promise((resolve) => schedule(resolve, 250));
+      if (!enabled || generation !== requestGeneration) return false;
+      realParams = currentTranscriptEndpointParams();
+    }
+    const candidates = [...new Set([
+      realParams,
+      transcriptParams(currentVideoId, track.languageCode),
+    ].filter(Boolean))];
+    try {
+      let parsedTranscript = null;
+      for (const params of candidates) {
+        const response = await fetch(`/youtubei/v1/get_transcript?key=${encodeURIComponent(apiKey)}&prettyPrint=false`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "X-YouTube-Client-Name": String(window.ytcfg?.get?.("INNERTUBE_CONTEXT_CLIENT_NAME") || 1),
+            "X-YouTube-Client-Version": String(context.client?.clientVersion || ""),
+          },
+          body: JSON.stringify({ context, params }),
+        });
+        if (!response.ok) continue;
+        const data = await response.json();
+        const events = collectTranscriptCues(data);
+        const result = window.YTXTranscriptParser.parseJson3({ events });
+        if (result.cues.length) {
+          parsedTranscript = result;
+          break;
+        }
+      }
+      if (!parsedTranscript || generation !== requestGeneration) return false;
+      const { cues, blocks } = parsedTranscript;
+      transcriptCompleted = true;
+      lastReadyPayload = {
+        type: "YT_TRANSCRIPT_READY",
+        videoId: currentVideoId,
+        cues,
+        blocks,
+        languageCode: track.languageCode,
+        languageName: track.languageName,
+        isAutomatic: Boolean(track.isAutomatic),
+        isTranslated: Boolean(track.isTranslated),
+        selectedTrackId: track.id,
+        tracks: availableTracks.map(({ baseUrl, ...availableTrack }) => availableTrack),
+      };
+      const key = cacheKey(currentVideoId, track.id);
+      if (key) transcriptCache.set(key, lastReadyPayload);
+      post(lastReadyPayload);
+      return true;
+    } catch (error) {
+      console.debug("[Transcript] El endpoint alternativo no devolvió una transcripción:", error);
+      return false;
+    }
+  }
+
   async function loadTrackDirectly(track, generation) {
     let currentTrack = track;
-    for (const delay of [0, 1200, 3000]) {
+    for (const delay of [0, 1200]) {
       if (delay) await new Promise((resolve) => schedule(resolve, delay));
       if (!enabled || generation !== requestGeneration) return false;
       if (delay) {
@@ -407,7 +491,9 @@
       if (loaded) return true;
       if (lastFailureKind === "rate-limit") return false;
     }
-    return false;
+    const apiLoaded = await loadTrackFromTranscriptApi(currentTrack, generation);
+    if (apiLoaded) return true;
+    return requestSignedCaptionUrl(currentTrack, generation);
   }
 
   async function requestTranscript(force = false) {
@@ -429,7 +515,6 @@
     currentVideoId = nextVideoId;
     transcriptCompleted = false;
     processedUrls.clear();
-    subtitlesEnabledByExtension = false;
     post({ type: "YT_TRANSCRIPT_LOADING" });
 
     // En navegaciones SPA, yt-navigate-finish puede llegar antes de que el reproductor
@@ -442,59 +527,11 @@
       const loaded = await loadTrackDirectly(selected, generation);
       if (loaded) return;
       if (generation !== requestGeneration || lastFailureKind === "rate-limit") return;
-      // Si la URL directa aún no está habilitada, pedimos al propio reproductor que
-      // seleccione la pista. Esto reproduce el camino que antes exigía pulsar CC.
       post({ type: "YT_TRANSCRIPT_ERROR", message: "YouTube no devolvió datos para esta pista de subtítulos." });
       return;
     }
 
     post({ type: "YT_TRANSCRIPT_UNAVAILABLE", videoId: currentVideoId });
-    return;
-
-    let attempts = 0;
-    if (buttonTimer) clearInterval(buttonTimer);
-    buttonTimer = setInterval(() => {
-      if (generation !== requestGeneration || transcriptCompleted) {
-        clearInterval(buttonTimer);
-        buttonTimer = null;
-        return;
-      }
-
-      attempts += 1;
-      const button = document.querySelector(".ytp-subtitles-button");
-      if (button) {
-        clearInterval(buttonTimer);
-        buttonTimer = null;
-        const alreadyEnabled = button.getAttribute("aria-pressed") === "true";
-        suppressPlayerCaptions();
-        if (alreadyEnabled) {
-          button.click();
-          schedule(() => {
-            if (generation === requestGeneration && !transcriptCompleted) button.click();
-          }, 120);
-        } else {
-          subtitlesEnabledByExtension = true;
-          button.click();
-        }
-
-        schedule(() => {
-          if (generation === requestGeneration && !transcriptCompleted) {
-            post({
-              type: "YT_TRANSCRIPT_ERROR",
-              message: "YouTube no realizó la petición de subtítulos tras activar el botón.",
-            });
-            restoreSubtitleState();
-          }
-        }, 12000);
-      } else if (attempts >= 40) {
-        clearInterval(buttonTimer);
-        buttonTimer = null;
-        post({
-          type: "YT_TRANSCRIPT_UNAVAILABLE",
-          videoId: currentVideoId,
-        });
-      }
-    }, 250);
   }
 
   window.addEventListener("message", (event) => {
@@ -505,7 +542,6 @@
       stopBackgroundWork();
       return;
     }
-    ensureNativeCaptionsAreOff();
     if (event.data.selectTrackId) {
       const selected = availableTracks.find((track) => track.id === event.data.selectTrackId) || collectTracks().find((track) => track.id === event.data.selectTrackId);
       if (enabled && selected) {
@@ -515,12 +551,7 @@
         if (restoreCachedTranscript(selected.id)) return;
         transcriptCompleted = false;
         post({ type: "YT_TRANSCRIPT_LOADING" });
-        processTimedTextUrl(json3Url(selected.baseUrl), {
-          force: true,
-          selectedTrackId: selected.id,
-          generation,
-          silentFailure: true,
-        }).then((loaded) => {
+        loadTrackDirectly(selected, generation).then((loaded) => {
           if (!loaded && generation === requestGeneration && enabled) {
             post({ type: "YT_TRANSCRIPT_ERROR", message: "YouTube no permitió seleccionar esta pista de subtítulos." });
           }
