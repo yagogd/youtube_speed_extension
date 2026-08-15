@@ -6,16 +6,19 @@ Extensión MV3 para controlar la reproducción, consultar la transcripción y gu
 
 La integración usa el plugin comunitario **Local REST API** de Obsidian y mantiene una cola offline local. Abre **Ajustes → Obsidian**, introduce la URL y el token del plugin, prueba la conexión y configura la carpeta raíz, Inbox y formato del archivo. La URL HTTP local predeterminada es `http://127.0.0.1:27123`; HTTPS también funciona si Brave confía en el certificado.
 
-Durante un vídeo, abre el panel de notas para editar:
+Durante un vídeo, el botón de nota general abre un espacio independiente para el resumen y la organización. El botón de notas temporales queda dedicado a la lista de timestamps. Desde ambos editores puedes gestionar:
 
 - la nota general (resumen o conclusiones);
 - la carpeta de destino, o déjala vacía para usar Inbox;
-- tags separados por comas;
+- tags del vídeo con sugerencias procedentes del vault;
+- tags propios en cada nota con timestamp;
 - las notas con timestamp existentes.
 
 Con la integración habilitada, los cambios se guardan localmente y se intentan sincronizar automáticamente tras una breve pausa: nota general, tags, carpeta y notas timestamp. Si Obsidian está cerrado, permanecen pendientes. La extensión reintenta al iniciar Brave, al recuperar/cambiar la configuración y cada minuto. Los botones de sincronización permiten forzar un reintento, pero no son necesarios en el flujo normal.
 
-La carpeta predeterminada es una única ruta relativa al vault, por ejemplo `YouTube/Inbox` o `IA/Modelos`. Cada vídeo puede sustituirla con su propia carpeta. El nombre de archivo es editable y ofrece presets con `{video_title}`, `{channel}`, `{date}` y `{video_id}`. La plantilla Markdown también es editable mediante `{{frontmatter}}`, `{{title}}`, `{{general_note}}`, `{{timestamp_notes}}`, `{{url}}`, `{{channel}}`, `{{video_id}}` y `{{tags}}`.
+La carpeta predeterminada es una única ruta relativa al vault, por ejemplo `YouTube/Inbox` o `IA/Modelos`. Cada vídeo puede sustituirla con su propia carpeta. El nombre de archivo es editable con `{video_title}`, `{channel}`, `{date}` y `{video_id}`. La plantilla Markdown también es editable mediante `{{frontmatter}}`, `{{title}}`, `{{general_note}}`, `{{timestamp_notes}}`, `{{url}}`, `{{channel}}`, `{{video_id}}` y `{{tags}}`. El editor permite insertar estas variables como piezas, sin tener que escribirlas de memoria. Tanto los formatos de nombre como las plantillas pueden guardarse como presets personalizados y reutilizarse o eliminarse desde los ajustes. La plantilla predeterminada no repite el título como encabezado dentro de la nota.
+
+Todas las opciones exportadas se muestran en una lista donde pueden activarse, desactivarse y reordenarse arrastrándolas o mediante sus flechas. Fuente, ID, canal, URL, fecha de creación de la nota y fecha de publicación del vídeo pueden configurarse por separado. Tags y enlaces de YouTube conservan su relación semántica con el frontmatter y las notas timestamp.
 
 El editor de organización consulta `GET /tags/` y recorre `GET /vault/` cuando Obsidian está disponible. Muestra selectores visibles y filtrables con los tags y carpetas existentes, incluidas subcarpetas. También permite crear valores nuevos; los tags se muestran como chips y no se convierten automáticamente en carpetas.
 
@@ -34,7 +37,7 @@ El token se guarda en el almacenamiento local de la extensión, no se registra y
 
 ## Limitaciones
 
-Local REST API debe estar instalado y Obsidian abierto para completar una sincronización, pero no mientras se toman notas. La cola no es un sistema de resolución de conflictos: la extensión considera sus datos locales como fuente de verdad y sobrescribe su archivo asociado al volver a conectar. Esta versión no consulta tags existentes y no incluye IA, RAG ni búsqueda semántica.
+Local REST API debe estar instalado y Obsidian abierto para completar una sincronización, pero no mientras se toman notas. La cola no es un sistema de resolución de conflictos: la extensión considera sus datos locales como fuente de verdad y sobrescribe su archivo asociado al volver a conectar. Esta versión no incluye IA, RAG ni búsqueda semántica.
 
 ## Pruebas
 

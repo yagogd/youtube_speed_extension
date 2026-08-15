@@ -11,13 +11,20 @@
     apiToken: "",
     defaultFolder: "YouTube/Inbox",
     fileNameTemplate: "{video_title}",
-    noteTemplate: "{{frontmatter}}\n\n# {{title}}\n\n{{general_note}}\n\n{{timestamp_notes}}",
+    noteTemplate: "{{frontmatter}}\n\n{{general_note}}\n\n{{timestamp_notes}}",
     saveBehavior: "auto",
     includeMetadata: true,
+    includeSource: true,
+    includeVideoId: true,
+    includeChannel: true,
+    includeUrl: true,
+    includeNoteCreatedDate: true,
+    includeVideoPublishedDate: true,
     includeGeneralNote: true,
     includeTimestampNotes: true,
     includeTags: true,
     includeTimestampLinks: true,
+    contentOrder: ["source", "videoId", "channel", "url", "noteCreatedDate", "videoPublishedDate", "tags", "generalNote", "timestampNotes", "timestampLinks"],
   });
 
   function normalizeTags(tags) {
@@ -67,6 +74,8 @@
       video_title: record.videoTitle || "YouTube video",
       channel: record.channel || "Unknown channel",
       date: formatDate(record.date || record.createdAt),
+      note_date: formatDate(record.date || record.createdAt),
+      video_date: record.videoPublishedAt ? formatDate(record.videoPublishedAt) : "",
       video_id: record.videoId || "",
     };
     const template = settings.fileNameTemplate || DEFAULT_SETTINGS.fileNameTemplate;
@@ -81,25 +90,29 @@
   function timestampNotes(record, settings) {
     return (record.timestampNotes || []).slice().sort((a, b) => a.startMs - b.startMs).map((note) => {
       const body = [note.text, note.note].filter(Boolean).join("\n\n") || "Saved moment";
+      const noteTags = normalizeTags(note.tags);
+      const tagLine = noteTags.length ? `\n\n**Tags:** ${noteTags.map((tag) => `#${tag}`).join(" ")}` : "";
       const link = settings.includeTimestampLinks ? `\n\n[Ver en YouTube](${timestampUrl(record.videoUrl, note.startMs)})` : "";
-      return `### ${formatTime(note.startMs)}\n\n${body}${link}`;
+      return `### ${formatTime(note.startMs)}\n\n${body}${tagLine}${link}`;
     }).join("\n\n");
   }
 
   function renderMarkdown(record, suppliedSettings = {}) {
     const settings = { ...DEFAULT_SETTINGS, ...suppliedSettings };
     const tags = normalizeTags(record.tags);
-    let frontmatter = "";
-    if (settings.includeMetadata) {
-      const yaml = ["---", "source: youtube", `video_id: ${yamlString(record.videoId)}`, `channel: ${yamlString(record.channel)}`, `url: ${yamlString(record.videoUrl)}`, `date: ${formatDate(record.date || record.createdAt)}`];
-      if (settings.includeTags) {
-        yaml.push("tags:");
-        tags.forEach((tag) => yaml.push(`  - ${yamlString(tag)}`));
-        if (!tags.length) yaml[yaml.length - 1] += " []";
-      }
-      yaml.push("---");
-      frontmatter = yaml.join("\n");
-    }
+    const metadataLines = {
+      source: settings.includeSource ? ["source: youtube"] : [],
+      videoId: settings.includeVideoId ? [`video_id: ${yamlString(record.videoId)}`] : [],
+      channel: settings.includeChannel ? [`channel: ${yamlString(record.channel)}`] : [],
+      url: settings.includeUrl ? [`url: ${yamlString(record.videoUrl)}`] : [],
+      noteCreatedDate: settings.includeNoteCreatedDate ? [`note_created: ${formatDate(record.date || record.createdAt)}`] : [],
+      videoPublishedDate: settings.includeVideoPublishedDate && record.videoPublishedAt ? [`video_published: ${formatDate(record.videoPublishedAt)}`] : [],
+      tags: settings.includeTags ? ["tags:", ...(tags.length ? tags.map((tag) => `  - ${yamlString(tag)}`) : ["  []"])] : [],
+    };
+    const requestedMetadataOrder = Array.isArray(settings.contentOrder) ? settings.contentOrder : DEFAULT_SETTINGS.contentOrder;
+    const metadataOrder = [...new Set([...requestedMetadataOrder, ...Object.keys(metadataLines)])].filter((key) => key in metadataLines);
+    const yamlBody = metadataOrder.flatMap((key) => metadataLines[key]);
+    const frontmatter = yamlBody.length ? ["---", ...yamlBody, "---"].join("\n") : "";
     const values = {
       frontmatter,
       title: record.videoTitle || "YouTube video",
@@ -110,7 +123,31 @@
       video_id: record.videoId || "",
       tags: settings.includeTags ? normalizeTags(record.tags).join(", ") : "",
     };
-    const template = settings.noteTemplate || DEFAULT_SETTINGS.noteTemplate;
+    const defaultOrder = DEFAULT_SETTINGS.contentOrder;
+    const requestedOrder = Array.isArray(settings.contentOrder) ? settings.contentOrder : defaultOrder;
+    const contentOrder = [...new Set([...requestedOrder, ...defaultOrder])].filter((key) => defaultOrder.includes(key));
+    const metadataKeys = new Set([...Object.entries(metadataLines).filter(([, lines]) => lines.length).map(([key]) => key), "metadata"]);
+    const orderedSections = contentOrder.map((key) => ({
+      generalNote: "{{general_note}}",
+      timestampNotes: "{{timestamp_notes}}",
+    })[key] || "").filter((token, index, tokens) => token && tokens.indexOf(token) === index);
+    const orderedDefaultTemplate = [frontmatter ? "{{frontmatter}}" : "", ...orderedSections].filter(Boolean).join("\n\n");
+    const configuredTemplate = settings.noteTemplate || DEFAULT_SETTINGS.noteTemplate;
+    let template = configuredTemplate === DEFAULT_SETTINGS.noteTemplate ? orderedDefaultTemplate : configuredTemplate;
+    if (configuredTemplate !== DEFAULT_SETTINGS.noteTemplate) {
+      if (frontmatter) template = ["{{frontmatter}}", template.replace(/\{\{frontmatter\}\}/g, "").trim()].filter(Boolean).join("\n\n");
+      let missingMetadataPlaced = Boolean(frontmatter);
+      const missingTokens = contentOrder.map((key) => {
+        if (metadataKeys.has(key) && !missingMetadataPlaced) {
+          missingMetadataPlaced = true;
+          return "{{frontmatter}}";
+        }
+        if (key === "generalNote" && settings.includeGeneralNote && !template.includes("{{general_note}}")) return "{{general_note}}";
+        if (key === "timestampNotes" && settings.includeTimestampNotes && !template.includes("{{timestamp_notes}}")) return "{{timestamp_notes}}";
+        return "";
+      }).filter((token, index, tokens) => token && tokens.indexOf(token) === index);
+      if (missingTokens.length) template = [template.trim(), ...missingTokens].filter(Boolean).join("\n\n");
+    }
     const rendered = template.replace(/\{\{([a-z_]+)\}\}/g, (match, key) => key in values ? values[key] : match);
     return `${rendered.trim()}\n`;
   }

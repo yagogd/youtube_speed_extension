@@ -105,6 +105,38 @@
       const textarea = document.createElement("textarea");
       textarea.placeholder = "Escribe tu nota…";
       textarea.setAttribute("aria-label", "Contenido de la nota");
+      const tagsInput = document.createElement("input");
+      tagsInput.placeholder = "Tags de esta nota (separados por comas)";
+      tagsInput.setAttribute("aria-label", "Tags de esta nota");
+      tagsInput.setAttribute("autocomplete", "off");
+      const tagsCatalog = document.createElement("div");
+      tagsCatalog.className = "ytx-video-note__catalog ytx-player-note-editor__tags-catalog";
+      tagsCatalog.hidden = true;
+      const tagsWrap = document.createElement("div");
+      tagsWrap.className = "ytx-player-note-editor__tags-wrap";
+      tagsWrap.append(tagsInput, tagsCatalog);
+      const renderTags = () => {
+        const parts = tagsInput.value.split(",");
+        const query = (parts.pop() || "").trim().toLocaleLowerCase();
+        const selected = globalThis.YTXObsidianCore?.normalizeTags(parts) || [];
+        const tags = (ytx.notes?.getAvailableTags?.() || []).filter((tag) => !selected.includes(tag) && (!query || tag.toLocaleLowerCase().includes(query))).slice(0, 60);
+        tagsCatalog.replaceChildren(...tags.map((tag) => {
+          const option = document.createElement("button");
+          option.type = "button";
+          option.textContent = tag;
+          option.addEventListener("mousedown", (event) => event.preventDefault());
+          option.addEventListener("click", () => {
+            tagsInput.value = [...selected, tag].join(", ") + ", ";
+            tagsCatalog.hidden = true;
+            tagsInput.focus();
+          });
+          return option;
+        }));
+        tagsCatalog.hidden = !tags.length;
+      };
+      tagsInput.addEventListener("focus", renderTags);
+      tagsInput.addEventListener("input", renderTags);
+      tagsInput.addEventListener("blur", () => { tagsCatalog.hidden = true; });
       const hint = document.createElement("small");
       hint.textContent = "Enter para guardar · Shift + Enter para una línea nueva";
       const actions = document.createElement("div");
@@ -117,7 +149,7 @@
       save.className = "ytx-player-note-editor__save";
       save.textContent = "Guardar nota";
       actions.append(cancel, save);
-      editor.append(heading, times, textarea, hint, actions);
+      editor.append(heading, times, textarea, tagsWrap, hint, actions);
       player.appendChild(editor);
 
       const saveNote = async () => {
@@ -135,6 +167,7 @@
           endMs: endSeconds * 1000,
           text: "",
           note,
+          tags: globalThis.YTXObsidianCore?.normalizeTags(tagsInput.value) || [],
         });
         close();
         onSaved();

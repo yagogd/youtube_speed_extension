@@ -4,7 +4,7 @@ const core = require("../src/obsidian/core.js");
 
 const record = {
   videoId: "abc123", videoTitle: "Neural Networks: A/B?", videoUrl: "https://www.youtube.com/watch?v=abc123",
-  channel: "3Blue1Brown", createdAt: "2026-08-14T10:00:00Z", generalNote: "Relacionar con [[Backpropagation]].",
+  channel: "3Blue1Brown", createdAt: "2026-08-14T10:00:00Z", videoPublishedAt:"2025-01-20", generalNote: "Relacionar con [[Backpropagation]].",
   tags: [" machine-learning ", "#statistics", "MACHINE-LEARNING"], folder: "Mathematics",
   timestampNotes: [{ startMs: 452000, text: "Ejemplo", note: "Buen ejemplo de [[Gradient Descent]]." }, { startMs: 161000, text: "Neurona", note: "Función parametrizada." }],
 };
@@ -24,10 +24,35 @@ test("genera una ruta estable bajo la carpeta elegida", () => {
 test("genera Markdown Obsidian ordenado y conserva wikilinks", () => {
   const markdown = core.renderMarkdown(record, core.DEFAULT_SETTINGS);
   assert.match(markdown, /video_id: "abc123"/);
+  assert.match(markdown, /note_created: 2026-08-14/);
+  assert.match(markdown, /video_published: 2025-01-20/);
   assert.match(markdown, /- "machine-learning"/);
   assert.match(markdown, /\[\[Backpropagation\]\]/);
   assert.ok(markdown.indexOf("### 2:41") < markdown.indexOf("### 7:32"));
   assert.match(markdown, /watch\?v=abc123&t=161s/);
+  assert.doesNotMatch(markdown, /^# Neural Networks/m);
+});
+
+test("permite elegir cada dato del frontmatter por separado", () => {
+  const markdown = core.renderMarkdown(record, {
+    ...core.DEFAULT_SETTINGS, includeSource:false, includeVideoId:false, includeChannel:true,
+    includeUrl:false, includeNoteCreatedDate:false, includeVideoPublishedDate:true, includeTags:false,
+  });
+  assert.match(markdown, /channel: "3Blue1Brown"/);
+  assert.match(markdown, /video_published: 2025-01-20/);
+  assert.doesNotMatch(markdown, /source: youtube|video_id:|url:|note_created:|tags:/);
+});
+
+test("incluye tags específicos dentro de cada nota timestamp", () => {
+  const tagged = { ...record, timestampNotes:[{ ...record.timestampNotes[0], tags:["concepto", "repasar"] }] };
+  const markdown = core.renderMarkdown(tagged, core.DEFAULT_SETTINGS);
+  assert.match(markdown, /\*\*Tags:\*\* #concepto #repasar/);
+});
+
+test("mantiene el frontmatter primero y respeta el orden del resto", () => {
+  const markdown = core.renderMarkdown(record, { ...core.DEFAULT_SETTINGS, contentOrder:["timestampNotes", "generalNote", "metadata"] });
+  assert.equal(markdown.indexOf("---"), 0);
+  assert.ok(markdown.indexOf("## Notas") < markdown.indexOf("## Nota general"));
 });
 
 test("usa Inbox cuando el vídeo no tiene carpeta", () => {
@@ -40,11 +65,19 @@ test("acepta carpetas predeterminadas anidadas sin prefijo obligatorio", () => {
 });
 
 test("renderiza una plantilla Markdown personalizada", () => {
-  const markdown = core.renderMarkdown(record, { ...core.DEFAULT_SETTINGS, noteTemplate:"{{frontmatter}}\n# {{title}}\nCanal: {{channel}}\n{{general_note}}" });
+  const markdown = core.renderMarkdown(record, { ...core.DEFAULT_SETTINGS, includeTimestampNotes:false, noteTemplate:"{{frontmatter}}\n# {{title}}\nCanal: {{channel}}\n{{general_note}}" });
   assert.match(markdown, /# Neural Networks: A\/B\?/);
   assert.match(markdown, /Canal: 3Blue1Brown/);
   assert.match(markdown, /\[\[Backpropagation\]\]/);
   assert.doesNotMatch(markdown, /### 2:41/);
+});
+
+test("añade el contenido activado aunque una plantilla personalizada olvide sus variables", () => {
+  const markdown = core.renderMarkdown(record, { ...core.DEFAULT_SETTINGS, noteTemplate:"{{frontmatter}}" });
+  assert.match(markdown, /## Nota general/);
+  assert.match(markdown, /Relacionar con \[\[Backpropagation\]\]/);
+  assert.match(markdown, /## Notas/);
+  assert.match(markdown, /### 2:41/);
 });
 
 test("conserva los saltos Markdown escritos por el usuario", () => {

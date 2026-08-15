@@ -14,8 +14,6 @@
   color: var(--text);
 }
 .field textarea { min-height:110px; resize:vertical; line-height:1.45; }
-.template-preset-row { display:grid; grid-template-columns:1fr auto; gap:7px; margin-top:12px; }
-.template-preset-row select { min-width:0; padding:8px; border:1px solid var(--border); border-radius:8px; color:inherit; background:var(--surface2); }
 
 .toggle {
   display: flex;
@@ -259,5 +257,59 @@
 .favorite-languages__add button:hover {
   background: rgba(127, 137, 153, .2);
 }
-.obsidian-options { display:grid; gap:7px; margin:12px 0; padding:10px; border:1px solid rgba(128,128,128,.25); border-radius:8px; }
-.obsidian-options label { display:flex; align-items:center; gap:7px; font-size:12px; }
+.obsidian-options { margin:0; padding:0; border:0; }
+.obsidian-settings { display:grid; gap:12px; }
+.obsidian-settings-group { padding:14px; overflow:hidden; border:1px solid var(--border); border-radius:14px; background:linear-gradient(145deg,var(--surface2),rgba(127,137,153,.035)); }
+.obsidian-settings-group__heading { display:grid; gap:3px; margin-bottom:11px; }
+.obsidian-settings-group__heading strong { color:var(--text); font-size:13.5px; }
+.obsidian-settings-group__heading span { color:var(--muted); font-size:11px; line-height:1.35; }
+.obsidian-settings-group .toggle { padding-bottom:10px; border-bottom:1px solid var(--border); }
+.obsidian-settings-group .wide-button { min-height:36px; }
+.obsidian-settings-group > .field { margin-top:11px; }
+.obsidian-settings-group > .field:first-of-type { margin-top:0; }
+.obsidian-settings-group .field input,
+.obsidian-settings-group .field textarea { width:100%; box-sizing:border-box; }
+.obsidian-format-editor { padding:12px; border:1px solid var(--border); border-radius:12px; background:rgba(0,0,0,.07); }
+.obsidian-format-editor + .obsidian-format-editor { margin-top:11px; }
+.obsidian-format-editor__heading { display:grid; gap:3px; padding-bottom:9px; border-bottom:1px solid var(--border); }
+.obsidian-format-editor__heading strong { color:var(--text); font-size:12.5px; }
+.obsidian-format-editor__heading span { color:var(--muted); font-size:10px; line-height:1.4; }
+.obsidian-format-editor > .field { margin-top:10px; }
+.obsidian-credentials { display:grid; grid-template-columns:1fr; gap:9px; margin-top:11px; }
+.obsidian-credentials .field { display:grid; grid-template-columns:1fr; gap:5px; margin:0; }
+.obsidian-credentials .field input { width:100%; min-width:0; margin:0; box-sizing:border-box; }
+.obsidian-preset-manager { display:grid; gap:8px; margin-top:10px; padding:11px; border:1px solid var(--border); border-radius:11px; background:rgba(0,0,0,.08); }
+.obsidian-preset-manager > strong { color:var(--text); font-size:11px; }
+.obsidian-preset-manager__copy { color:var(--muted); font-size:9.5px; line-height:1.35; }
+.obsidian-preset-manager__row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.obsidian-preset-manager__row select { grid-column:1/-1; }
+.obsidian-preset-manager__row--create { grid-template-columns:minmax(0,1fr) auto; margin-top:3px; padding-top:9px; border-top:1px solid var(--border); }
+.obsidian-preset-manager__row--create strong { grid-column:1/-1; color:var(--text); font-size:10.5px; }
+.obsidian-preset-manager select,.obsidian-preset-manager input { min-width:0; min-height:34px; padding:0 9px; border:1px solid var(--border); border-radius:8px; color:var(--text); background:var(--surface); font:inherit; }
+.obsidian-preset-manager button { min-width:0; min-height:34px; padding:0 7px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.obsidian-preset-manager__remove:disabled,.obsidian-preset-manager__rename:disabled { opacity:.42; cursor:not-allowed; }
+.obsidian-variable-helper { display:grid; gap:7px; margin-top:8px; }
+.obsidian-variable-helper > span { color:var(--muted); font-size:10.5px; line-height:1.4; }
+.obsidian-variable-helper__chips { display:flex; flex-wrap:wrap; gap:6px; }
+.obsidian-variable-chip { display:grid; gap:1px; min-width:68px; padding:7px 9px; border:1px solid var(--border); border-radius:9px; color:var(--text); background:var(--surface); cursor:pointer; font:inherit; text-align:left; transition:border-color .16s, transform .16s, background .16s; }
+.obsidian-variable-chip strong { font-size:10.5px; }
+.obsidian-variable-chip code { color:var(--muted); font-size:8.5px; }
+.obsidian-variable-chip:hover { border-color:var(--accent); background:rgba(72,139,255,.09); transform:translateY(-1px); }
+.obsidian-content-builder { display:grid; gap:10px; }
+.obsidian-content-builder > .section-copy { margin:0; }
+.obsidian-content-list { display:grid; gap:7px; }
+.obsidian-content-item { display:grid; grid-template-columns:auto auto minmax(0,1fr) auto auto; align-items:center; gap:8px; min-height:49px; padding:8px; border:1px solid var(--border); border-radius:11px; color:var(--muted); background:var(--surface); transition:border-color .16s, background .16s, opacity .16s; }
+.obsidian-content-item.is-enabled { color:var(--text); border-color:rgba(72,139,255,.42); background:linear-gradient(100deg,rgba(72,139,255,.1),var(--surface)); }
+.obsidian-content-item.is-dragging { opacity:.45; }
+.obsidian-content-item.is-drag-over { border-color:var(--accent); }
+.obsidian-content-item__handle { cursor:grab; color:var(--muted); font-size:17px; line-height:1; }
+.obsidian-content-item__number { display:grid; place-items:center; width:25px; height:25px; border-radius:8px; color:var(--muted); background:var(--surface2); font-size:9px; font-weight:800; }
+.obsidian-content-item__copy { min-width:0; cursor:pointer; }
+.obsidian-content-item__copy strong,.obsidian-content-item__copy span { display:block; }
+.obsidian-content-item__copy strong { font-size:11.5px; }
+.obsidian-content-item__copy span { margin-top:2px; overflow:hidden; color:var(--muted); font-size:9.5px; text-overflow:ellipsis; white-space:nowrap; }
+.obsidian-content-item__toggle { display:grid; place-items:center; width:25px; height:25px; overflow:hidden; font-size:0; white-space:nowrap; }
+.obsidian-content-item__toggle input { width:15px; height:15px; margin:0; accent-color:var(--accent); }
+.obsidian-content-item__controls { display:grid; grid-template-columns:1fr 1fr; gap:3px; }
+.obsidian-content-item__controls button { width:25px; height:25px; padding:0; border:1px solid var(--border); border-radius:7px; color:var(--text); background:var(--surface2); cursor:pointer; }
+.obsidian-content-item__controls button:disabled { opacity:.25; cursor:default; }

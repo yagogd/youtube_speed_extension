@@ -11,6 +11,7 @@
     copy: ['<rect x="8" y="8" width="11" height="11" rx="2"/>', '<path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'],
     check: ['<path d="m5 12 4 4L19 6"/>'],
     edit: ['<path d="M12 20h9"/>', '<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>'],
+    fileText: ['<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/>', '<path d="M14 2v6h6M8 13h8M8 17h6"/>'],
     trash: ['<path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/>'],
     arrowUp: ['<path d="m6 11 6-6 6 6M12 5v14"/>'],
     arrowDown: ['<path d="m6 13 6 6 6-6M12 19V5"/>'],
@@ -64,6 +65,9 @@
     const notesToggle = createButton("ytx-button ytx-button--notes", "list", "Mostrar notas y favoritos de este vídeo");
     notesToggle.setAttribute("aria-expanded", "false");
     notesToggle.setAttribute("aria-controls", "ytx-transcript-notes");
+    const generalToggle = createButton("ytx-button ytx-button--general", "fileText", "Editar nota general y organización");
+    generalToggle.setAttribute("aria-expanded", "false");
+    generalToggle.setAttribute("aria-controls", "ytx-video-note-panel");
     const closeButton = createButton("ytx-button ytx-button--close", "close", "Cerrar la transcripción");
 
     const content = document.createElement("div");
@@ -103,21 +107,34 @@
     notesHeader.append(notesHeading, notesClose);
     const notesList = document.createElement("div");
     notesList.className = "ytx-notes__list";
-    const videoNote = document.createElement("div");
+    const videoNote = document.createElement("section");
+    videoNote.id = "ytx-video-note-panel";
     videoNote.className = "ytx-video-note";
+    videoNote.setAttribute("aria-label", "Nota general y organización del vídeo");
+    const videoNoteHeader = document.createElement("div");
+    videoNoteHeader.className = "ytx-video-note__header";
+    const videoNoteTitle = document.createElement("strong");
+    videoNoteTitle.textContent = "Nota del vídeo";
+    const generalClose = createButton("ytx-notes__close", "close", "Cerrar nota general");
+    videoNoteHeader.append(videoNoteTitle, generalClose);
     const generalLabel = document.createElement("label");
     generalLabel.textContent = "NOTA GENERAL";
     const generalNote = document.createElement("textarea");
     generalNote.className = "ytx-video-note__general";
     generalNote.placeholder = "Resumen, conclusiones e ideas generales…";
     generalLabel.appendChild(generalNote);
+    const generalHint = document.createElement("small");
+    generalHint.className = "ytx-video-note__general-hint";
+    generalHint.textContent = "Enter para guardar · Shift + Enter para una nueva línea";
+    generalLabel.appendChild(generalHint);
     const organization = document.createElement("details");
     organization.className = "ytx-video-note__organization";
+    organization.open = true;
     const organizationSummary = document.createElement("summary");
     organizationSummary.textContent = "ORGANIZACIÓN";
     const folder = document.createElement("input");
     folder.className = "ytx-video-note__folder";
-    folder.placeholder = "Carpeta específica (opcional)";
+    folder.placeholder = "Buscar o crear carpeta…";
     folder.setAttribute("aria-label", "Carpeta de Obsidian");
     folder.setAttribute("autocomplete", "off");
     const folderCatalog = document.createElement("div");
@@ -126,8 +143,19 @@
     const folderWrap = document.createElement("div");
     folderWrap.className = "ytx-video-note__picker";
     folderWrap.append(folder, folderCatalog);
+    const folderSelection = document.createElement("div");
+    folderSelection.className = "ytx-video-note__folder-selection";
+    const folderTitle = document.createElement("span");
+    folderTitle.className = "ytx-video-note__field-title";
+    folderTitle.textContent = "CARPETA";
+    const folderField = document.createElement("div");
+    folderField.className = "ytx-video-note__field";
+    folderField.append(folderTitle, folderSelection, folderWrap);
     const tagsWrap = document.createElement("div");
     tagsWrap.className = "ytx-video-note__tags";
+    const tagsTitle = document.createElement("span");
+    tagsTitle.className = "ytx-video-note__field-title";
+    tagsTitle.textContent = "TAGS";
     const tagsChips = document.createElement("div");
     tagsChips.className = "ytx-video-note__tag-chips";
     const tagsInput = document.createElement("input");
@@ -137,8 +165,8 @@
     const tagsCatalog = document.createElement("div");
     tagsCatalog.className = "ytx-video-note__catalog";
     tagsCatalog.hidden = true;
-    tagsWrap.append(tagsChips, tagsInput, tagsCatalog);
-    organization.append(organizationSummary, folderWrap, tagsWrap);
+    tagsWrap.append(tagsTitle, tagsChips, tagsInput, tagsCatalog);
+    organization.append(organizationSummary, folderField, tagsWrap);
     const syncRow = document.createElement("div");
     syncRow.className = "ytx-video-note__sync";
     const syncStatus = document.createElement("span");
@@ -148,11 +176,12 @@
     syncButton.type = "button";
     syncButton.textContent = "Sincronizar";
     syncRow.append(syncStatus, syncButton);
-    const timestampHeading = document.createElement("strong");
-    timestampHeading.className = "ytx-video-note__timestamp-heading";
-    timestampHeading.textContent = "NOTAS CON TIMESTAMP";
-    videoNote.append(generalLabel, organization, syncRow, timestampHeading);
-    notesDrawer.append(notesHeader, videoNote, notesList);
+    const organizationFeedback = document.createElement("div");
+    organizationFeedback.className = "ytx-video-note__feedback";
+    organizationFeedback.setAttribute("role", "status");
+    organizationFeedback.setAttribute("aria-live", "polite");
+    videoNote.append(videoNoteHeader, generalLabel, organization, organizationFeedback);
+    notesDrawer.append(notesHeader, notesList);
 
     const noteEditor = document.createElement("section");
     noteEditor.className = "ytx-note-editor";
@@ -168,6 +197,17 @@
     noteEditorInput.className = "ytx-note-editor__input";
     noteEditorInput.placeholder = "Añade una nota opcional…";
     noteEditorInput.setAttribute("aria-label", "Texto de la nota");
+    const noteEditorTags = document.createElement("input");
+    noteEditorTags.className = "ytx-note-editor__tags";
+    noteEditorTags.placeholder = "Tags de esta nota (separados por comas)";
+    noteEditorTags.setAttribute("aria-label", "Tags de esta nota");
+    noteEditorTags.setAttribute("autocomplete", "off");
+    const noteEditorTagsCatalog = document.createElement("div");
+    noteEditorTagsCatalog.className = "ytx-video-note__catalog ytx-note-editor__tags-catalog";
+    noteEditorTagsCatalog.hidden = true;
+    const noteEditorTagsWrap = document.createElement("div");
+    noteEditorTagsWrap.className = "ytx-note-editor__tags-wrap";
+    noteEditorTagsWrap.append(noteEditorTags, noteEditorTagsCatalog);
     const noteEditorActions = document.createElement("div");
     noteEditorActions.className = "ytx-note-editor__actions";
     const noteEditorCancel = document.createElement("button");
@@ -177,27 +217,28 @@
     noteEditorSave.className = "ytx-button ytx-note-editor__save";
     noteEditorSave.textContent = "Guardar";
     noteEditorActions.append(noteEditorCancel, noteEditorSave);
-    noteEditor.append(noteEditorHeading, noteEditorInput, noteEditorActions);
+    noteEditor.append(noteEditorHeading, noteEditorInput, noteEditorTagsWrap, noteEditorActions);
 
     const headerActions = document.createElement("div");
     headerActions.className = "ytx-panel__actions";
     const transcriptActions = document.createElement("div");
     transcriptActions.className = "ytx-panel__action-group";
-    transcriptActions.append(searchToggle, notesToggle, copyButton);
+    transcriptActions.append(searchToggle, generalToggle, notesToggle, copyButton);
     const windowActions = document.createElement("div");
     windowActions.className = "ytx-panel__action-group";
     windowActions.append(collapseHeaderButton, closeButton);
     title.replaceChildren(trackUi.trackSelector);
     headerActions.append(transcriptActions, windowActions);
     header.append(title, headerActions);
-    panel.append(header, searchBar, notesDrawer, noteEditor, content);
+    panel.append(header, searchBar, videoNote, notesDrawer, noteEditor, content);
     (document.fullscreenElement || document.body).appendChild(panel);
 
     return {
       panel, header, title, content, headerActions, ...trackUi,
       searchToggle, searchBar, searchInput, searchCounter, searchPrevious, searchNext, searchClose,
-      notesToggle, notesDrawer, notesClose, notesList, generalNote, folder, folderCatalog, tagsInput, tagsChips, tagsCatalog, syncStatus, syncButton,
-      noteEditor, noteEditorTime, noteEditorText, noteEditorInput, noteEditorCancel, noteEditorSave,
+      generalToggle, generalClose, videoNote, organizationFeedback,
+      notesToggle, notesDrawer, notesClose, notesList, generalNote, folder, folderSelection, folderCatalog, tagsInput, tagsChips, tagsCatalog, syncStatus, syncButton,
+      noteEditor, noteEditorTime, noteEditorText, noteEditorInput, noteEditorTags, noteEditorTagsCatalog, noteEditorCancel, noteEditorSave,
       collapseHeaderButton, copyButton, closeButton, cleanups: [],
     };
   }

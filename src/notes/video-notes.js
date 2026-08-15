@@ -9,9 +9,19 @@
   let editorReturnFocus = null;
   let autoSyncTimer = 0;
   let currentTags = [];
+  let currentFolder = "";
   let availableTags = [];
   let availableFolders = [];
   let catalogRefreshedAt = 0;
+  let feedbackTimer = 0;
+  let videoFieldsSaveChain = Promise.resolve();
+
+  function resizeGeneralNote() {
+    const textarea = state.ui?.generalNote;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(70, textarea.scrollHeight)}px`;
+  }
 
   function videoId() {
     return new URL(location.href).searchParams.get("v") || "";
@@ -25,6 +35,7 @@
       videoTitle: heading?.textContent?.trim() || document.title.replace(/\s*-\s*YouTube\s*$/, ""),
       videoUrl: `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`,
       channel: document.querySelector("#owner #channel-name a, ytd-video-owner-renderer #channel-name a")?.textContent?.trim() || "",
+      videoPublishedAt: document.querySelector('meta[itemprop="datePublished"], meta[itemprop="uploadDate"]')?.getAttribute("content") || "",
     };
   }
 
@@ -51,6 +62,7 @@
     const record = {
       generalNote: "", tags: [], folder: "", createdAt: new Date().toISOString(), obsidian: { status: "never", path: "", fingerprint: "", error: "" },
       ...previous, ...metadata, ...patch,
+      videoPublishedAt: metadata.videoPublishedAt || previous.videoPublishedAt || "",
       timestampNotes: state.savedNotes.slice(),
     };
     if (Object.prototype.hasOwnProperty.call(patch, "folder") && previous.folder !== record.folder && previous.obsidian?.path) {
@@ -83,24 +95,38 @@
     const record = stored[RECORDS_KEY]?.[videoId()] || (await ensureVideoRecord())?.record;
     const settings = { ...YTXObsidianCore.DEFAULT_SETTINGS, ...(stored[SETTINGS_KEY] || {}) };
     if (!record) return;
-    state.ui.generalNote.value = record.generalNote || "";
-    state.ui.folder.value = record.folder || "";
+    if (document.activeElement !== state.ui.generalNote) {
+      state.ui.generalNote.value = record.generalNote || "";
+      resizeGeneralNote();
+    }
+    if (document.activeElement !== state.ui.folder) {
+      currentFolder = record.folder || "";
+      state.ui.folder.value = "";
+      renderFolderSelection();
+    }
     currentTags = YTXObsidianCore.normalizeTags(record.tags);
     renderTagChips();
     state.ui.syncStatus.textContent = statusText(record.obsidian?.status, settings.enabled && settings.apiUrl && settings.apiToken, record.obsidian?.error);
     state.ui.syncButton.disabled = !settings.enabled || !settings.apiUrl || !settings.apiToken;
   }
 
-  async function saveVideoFields() {
+  function saveVideoFields() {
     const ui = state.ui;
-    const result = await ensureVideoRecord({
+    const snapshot = {
       generalNote: ui.generalNote.value,
-      folder: ui.folder.value.trim(),
-      tags: currentTags,
+      folder: currentFolder,
+      tags: currentTags.slice(),
       updatedAt: new Date().toISOString(),
+    };
+    videoFieldsSaveChain = videoFieldsSaveChain.catch(() => {}).then(async () => {
+      const result = await ensureVideoRecord(snapshot);
+      scheduleAutoSync(result);
+      if (state.ui && result?.record) {
+        state.ui.syncStatus.textContent = statusText(result.record.obsidian?.status, result.settings?.enabled && result.settings?.apiUrl && result.settings?.apiToken, result.record.obsidian?.error);
+      }
+      return result;
     });
-    scheduleAutoSync(result);
-    await loadVideoRecord();
+    return videoFieldsSaveChain;
   }
 
   function renderTagChips() {
@@ -116,9 +142,44 @@
         currentTags = currentTags.filter((item) => item !== tag);
         renderTagChips();
         saveVideoFields();
+        showFeedback(`Tag #${tag} eliminado`);
       });
       ui.tagsChips.appendChild(chip);
     });
+  }
+
+  function renderFolderSelection() {
+    const ui = state.ui;
+    if (!ui?.folderSelection) return;
+    ui.folderSelection.replaceChildren();
+    if (!currentFolder) {
+      const empty = document.createElement("span");
+      empty.className = "ytx-video-note__folder-default";
+      empty.textContent = "Se usará la carpeta predeterminada";
+      ui.folderSelection.appendChild(empty);
+      return;
+    }
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.textContent = `${currentFolder} ×`;
+    chip.setAttribute("aria-label", `Quitar carpeta ${currentFolder}`);
+    chip.addEventListener("click", () => {
+      currentFolder = "";
+      renderFolderSelection();
+      saveVideoFields();
+      showFeedback("Se usará la carpeta predeterminada");
+    });
+    ui.folderSelection.appendChild(chip);
+  }
+
+  function showFeedback(message) {
+    const feedback = state.ui?.organizationFeedback;
+    if (!feedback) return;
+    clearTimeout(feedbackTimer);
+    feedback.textContent = `✓ ${message}`;
+    feedback.classList.remove("ytx-video-note__feedback--visible");
+    requestAnimationFrame(() => feedback.classList.add("ytx-video-note__feedback--visible"));
+    feedbackTimer = setTimeout(() => feedback.classList.remove("ytx-video-note__feedback--visible"), 2200);
   }
 
   function catalogButton(label, onSelect) {
@@ -155,16 +216,32 @@
       ui.tagsCatalog.hidden = true;
       renderTagChips();
       saveVideoFields();
+      showFeedback(`Tag #${tag.replace(/^#/, "")} añadido`);
     }, (tag) => `Crear tag #${tag.replace(/^#/, "")}`);
   }
 
   function renderFolderCatalog() {
     const ui = state.ui;
     renderCatalog(ui.folderCatalog, availableFolders, ui.folder.value, (folder) => {
-      ui.folder.value = folder;
+      currentFolder = folder;
+      ui.folder.value = "";
       ui.folderCatalog.hidden = true;
+      renderFolderSelection();
       saveVideoFields();
+      showFeedback(`Carpeta configurada: ${folder}`);
     }, (folder) => `Crear carpeta ${folder}`);
+  }
+
+  function renderNoteEditorTagCatalog() {
+    const ui = state.ui;
+    const parts = ui.noteEditorTags.value.split(",");
+    const query = parts.pop()?.trim() || "";
+    const selected = YTXObsidianCore.normalizeTags(parts);
+    renderCatalog(ui.noteEditorTagsCatalog, availableTags.filter((tag) => !selected.includes(tag)), query, (tag) => {
+      ui.noteEditorTags.value = [...selected, tag].join(", ") + ", ";
+      ui.noteEditorTagsCatalog.hidden = true;
+      ui.noteEditorTags.focus();
+    }, (tag) => `Crear tag #${tag.replace(/^#/, "")}`);
   }
 
   function refreshOrganizationCatalog(force = false) {
@@ -176,6 +253,7 @@
       availableFolders = response.folders || [];
       if (!state.ui.tagsCatalog.hidden) renderTagCatalog();
       if (!state.ui.folderCatalog.hidden) renderFolderCatalog();
+      if (!state.ui.noteEditorTagsCatalog.hidden) renderNoteEditorTagCatalog();
     });
   }
 
@@ -200,6 +278,7 @@
       endMs: Math.max(Number(draft.endMs) || 0, Number(draft.startMs) || 0),
       text: String(draft.text || "").trim(),
       note: String(draft.note || "").trim(),
+      tags: YTXObsidianCore.normalizeTags(draft.tags),
       createdAt: new Date().toISOString(),
     };
     all.push(item);
@@ -216,6 +295,7 @@
     all[index] = {
       ...all[index],
       note: String(draft.note || "").trim(),
+      tags: YTXObsidianCore.normalizeTags(draft.tags ?? all[index].tags),
       updatedAt: new Date().toISOString(),
     };
     await writeAll(all);
@@ -251,6 +331,7 @@
     ui.noteEditorTime.textContent = ytx.formatTime(draft.startMs);
     ui.noteEditorText.textContent = draft.text || "Marcador sin texto";
     ui.noteEditorInput.value = draft.note || "";
+    ui.noteEditorTags.value = (draft.tags || []).join(", ");
     ui.panel.classList.add("ytx-panel--note-editor-open");
     ui.noteEditorInput.focus();
   }
@@ -289,6 +370,16 @@
           note.className = "ytx-note-item__note";
           note.textContent = item.note;
           body.appendChild(note);
+        }
+        if (item.tags?.length) {
+          const tags = document.createElement("div");
+          tags.className = "ytx-note-item__tags";
+          item.tags.forEach((tag) => {
+            const chip = document.createElement("span");
+            chip.textContent = `#${tag}`;
+            tags.appendChild(chip);
+          });
+          body.appendChild(tags);
         }
         const deleteButton = document.createElement("button");
         deleteButton.className = "ytx-note-item__delete";
@@ -363,16 +454,35 @@
   function attach(ui) {
     let saveTimer = 0;
     const setNotesOpen = (open) => {
+      if (open) {
+        ui.panel.classList.add("ytx-panel--general-open");
+        ui.generalToggle.setAttribute("aria-expanded", "true");
+        refreshOrganizationCatalog();
+      } else {
+        ui.panel.classList.remove("ytx-panel--general-open");
+        ui.generalToggle.setAttribute("aria-expanded", "false");
+      }
       ui.panel.classList.toggle("ytx-panel--notes-open", open);
       ui.notesToggle.setAttribute("aria-expanded", String(open));
       ytx.panel.labelButton(ui.notesToggle, open ? "Cerrar notas y favoritos de este vídeo" : "Mostrar notas y favoritos de este vídeo");
       renderDrawer();
+    };
+    const setGeneralOpen = (open) => {
+      if (open) {
+        ui.panel.classList.remove("ytx-panel--notes-open");
+        ui.notesToggle.setAttribute("aria-expanded", "false");
+      }
+      ui.panel.classList.toggle("ytx-panel--general-open", open);
+      ui.generalToggle.setAttribute("aria-expanded", String(open));
+      if (open) refreshOrganizationCatalog();
     };
     const onToggleNotes = () => setNotesOpen(!ui.panel.classList.contains("ytx-panel--notes-open"));
     const onCloseNotes = () => {
       setNotesOpen(false);
       ui.notesToggle.focus();
     };
+    const onToggleGeneral = () => setGeneralOpen(!ui.panel.classList.contains("ytx-panel--general-open"));
+    const onCloseGeneral = () => { setGeneralOpen(false); ui.generalToggle.focus(); };
     const onCancel = () => {
       editorDraft = null;
       ui.panel.classList.remove("ytx-panel--note-editor-open");
@@ -381,8 +491,9 @@
     };
     const onSave = async () => {
       if (!editorDraft) return;
-      if (editorDraft.editingId) await update(editorDraft.editingId, { note: ui.noteEditorInput.value });
-      else await save({ ...editorDraft, note: ui.noteEditorInput.value });
+      const fields = { note:ui.noteEditorInput.value, tags:YTXObsidianCore.normalizeTags(ui.noteEditorTags.value) };
+      if (editorDraft.editingId) await update(editorDraft.editingId, fields);
+      else await save({ ...editorDraft, ...fields });
       onCancel();
     };
     const onEditorKeyDown = (event) => {
@@ -405,6 +516,7 @@
       renderTagChips();
       renderTagCatalog();
       saveVideoFields();
+      showFeedback(`${additions.length === 1 ? "Tag añadido" : "Tags añadidos"}`);
     };
     const onTagKeyDown = (event) => {
       if (event.key !== "Enter" && event.key !== ",") return;
@@ -414,6 +526,30 @@
     const hideCatalog = (event) => { event.currentTarget.nextElementSibling.hidden = true; };
     const onTagFocus = () => { renderTagCatalog(); refreshOrganizationCatalog(); };
     const onFolderFocus = () => { renderFolderCatalog(); refreshOrganizationCatalog(); };
+    const onNoteTagFocus = () => { renderNoteEditorTagCatalog(); refreshOrganizationCatalog(); };
+    const onGeneralKeyDown = async (event) => {
+      event.stopPropagation();
+      if (event.key !== "Enter" || event.shiftKey) return;
+      event.preventDefault();
+      clearTimeout(saveTimer);
+      await saveVideoFields();
+      showFeedback("Nota general guardada");
+    };
+    const onGeneralInput = () => {
+      resizeGeneralNote();
+      queueFieldSave();
+    };
+    const onFolderKeyDown = (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      const folder = ui.folder.value.trim();
+      if (folder) currentFolder = folder;
+      ui.folder.value = "";
+      ui.folderCatalog.hidden = true;
+      renderFolderSelection();
+      saveVideoFields();
+      showFeedback(currentFolder ? `Carpeta configurada: ${currentFolder}` : "Se usará la carpeta predeterminada");
+    };
     const onSync = async () => {
       clearTimeout(saveTimer);
       await saveVideoFields();
@@ -427,11 +563,17 @@
       });
     };
     ui.notesToggle.addEventListener("click", onToggleNotes);
+    ui.generalToggle.addEventListener("click", onToggleGeneral);
+    ui.generalClose.addEventListener("click", onCloseGeneral);
     ui.notesClose.addEventListener("click", onCloseNotes);
     ui.noteEditorCancel.addEventListener("click", onCancel);
     ui.noteEditorSave.addEventListener("click", onSave);
+    ui.noteEditorTags.addEventListener("focus", onNoteTagFocus);
+    ui.noteEditorTags.addEventListener("input", renderNoteEditorTagCatalog);
+    ui.noteEditorTags.addEventListener("blur", hideCatalog);
     ui.panel.addEventListener("keydown", onEditorKeyDown);
-    [ui.generalNote, ui.folder].forEach((input) => input.addEventListener("input", queueFieldSave));
+    ui.generalNote.addEventListener("input", onGeneralInput);
+    ui.generalNote.addEventListener("keydown", onGeneralKeyDown);
     ui.tagsInput.addEventListener("keydown", onTagKeyDown);
     ui.tagsInput.addEventListener("change", commitTags);
     ui.tagsInput.addEventListener("focus", onTagFocus);
@@ -440,6 +582,7 @@
     ui.folder.addEventListener("focus", onFolderFocus);
     ui.folder.addEventListener("input", renderFolderCatalog);
     ui.folder.addEventListener("blur", hideCatalog);
+    ui.folder.addEventListener("keydown", onFolderKeyDown);
     ui.syncButton.addEventListener("click", onSync);
     chrome.storage.onChanged.addListener(onStorageChanged);
     loadCurrent();
@@ -447,11 +590,17 @@
     refreshOrganizationCatalog();
     return () => {
       ui.notesToggle.removeEventListener("click", onToggleNotes);
+      ui.generalToggle.removeEventListener("click", onToggleGeneral);
+      ui.generalClose.removeEventListener("click", onCloseGeneral);
       ui.notesClose.removeEventListener("click", onCloseNotes);
       ui.noteEditorCancel.removeEventListener("click", onCancel);
       ui.noteEditorSave.removeEventListener("click", onSave);
+      ui.noteEditorTags.removeEventListener("focus", onNoteTagFocus);
+      ui.noteEditorTags.removeEventListener("input", renderNoteEditorTagCatalog);
+      ui.noteEditorTags.removeEventListener("blur", hideCatalog);
       ui.panel.removeEventListener("keydown", onEditorKeyDown);
-      [ui.generalNote, ui.folder].forEach((input) => input.removeEventListener("input", queueFieldSave));
+      ui.generalNote.removeEventListener("input", onGeneralInput);
+      ui.generalNote.removeEventListener("keydown", onGeneralKeyDown);
       ui.tagsInput.removeEventListener("keydown", onTagKeyDown);
       ui.tagsInput.removeEventListener("change", commitTags);
       ui.tagsInput.removeEventListener("focus", onTagFocus);
@@ -460,12 +609,14 @@
       ui.folder.removeEventListener("focus", onFolderFocus);
       ui.folder.removeEventListener("input", renderFolderCatalog);
       ui.folder.removeEventListener("blur", hideCatalog);
+      ui.folder.removeEventListener("keydown", onFolderKeyDown);
       ui.syncButton.removeEventListener("click", onSync);
       clearTimeout(saveTimer);
       clearTimeout(autoSyncTimer);
+      clearTimeout(feedbackTimer);
       chrome.storage.onChanged.removeListener(onStorageChanged);
     };
   }
 
-  ytx.notes = { attach, loadCurrent, save, update, remove, createBlockActions, refreshMarkers };
+  ytx.notes = { attach, loadCurrent, save, update, remove, createBlockActions, refreshMarkers, getAvailableTags:() => availableTags.slice() };
 })();

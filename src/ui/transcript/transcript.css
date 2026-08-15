@@ -209,17 +209,28 @@
 .ytx-notes__close:focus-visible { outline: 2px solid #5db5ff; outline-offset: 1px; }
 .ytx-notes__close .ytx-icon { width: 14px; height: 14px; }
 .ytx-notes__list { display: grid; gap: 5px; }
-.ytx-video-note { display:grid; gap:8px; margin-bottom:10px; }
+.ytx-video-note { display:none; flex:0 1 48%; gap:10px; min-height:100px; margin:-3px 0 10px; padding:11px; overflow-y:auto; border:1px solid rgba(93,181,255,.22); border-radius:10px; background:linear-gradient(145deg,rgba(18,34,48,.94),rgba(12,18,27,.96)); }
+.ytx-panel--general-open .ytx-video-note { display:grid; }
+.ytx-video-note__header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.ytx-video-note__header > strong { font-size:13px; }
 .ytx-video-note label,.ytx-video-note__timestamp-heading,.ytx-video-note__organization summary { color:#a1a1aa; font-size:10px; font-weight:700; letter-spacing:.06em; }
 .ytx-video-note textarea,.ytx-video-note input { box-sizing:border-box; width:100%; margin-top:5px; padding:7px; border:1px solid rgba(255,255,255,.13); border-radius:7px; outline:none; color:#fff; background:rgba(0,0,0,.24); font:inherit; font-size:12px; }
-.ytx-video-note textarea { min-height:70px; resize:vertical; }
+.ytx-video-note textarea { min-height:70px; overflow-y:hidden; resize:none; }
+.ytx-video-note__general-hint { display:block; margin-top:5px; color:#71717a; font-size:9.5px; font-weight:400; letter-spacing:0; }
 .ytx-video-note textarea:focus,.ytx-video-note input:focus { border-color:#3ea6ff; }
 .ytx-video-note__organization { padding:6px; border:1px solid rgba(255,255,255,.08); border-radius:7px; }
 .ytx-video-note__organization summary { cursor:pointer; }
+.ytx-video-note__field,.ytx-video-note__tags { margin-top:9px; }
+.ytx-video-note__field-title { display:block; margin-bottom:4px; color:#a1a1aa; font-size:10px; font-weight:700; letter-spacing:.06em; }
+.ytx-video-note__folder-selection { display:flex; flex-wrap:wrap; gap:5px; }
+.ytx-video-note__folder-selection button { max-width:100%; margin-bottom:2px; padding:4px 7px; overflow:hidden; border:1px solid rgba(93,181,255,.3); border-radius:999px; color:#bae6fd; background:rgba(14,165,233,.12); cursor:pointer; font:inherit; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+.ytx-video-note__folder-default { margin-bottom:2px; color:#71717a; font-size:10px; }
 .ytx-video-note__sync { display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .ytx-video-note__sync button { padding:5px 8px; border:0; border-radius:6px; color:#fff; background:#3ea6ff; cursor:pointer; font:inherit; font-size:11px; }
 .ytx-video-note__sync button:disabled { opacity:.55; cursor:default; }
 .ytx-video-note__status { min-width:0; color:#a1a1aa; font-size:10px; overflow-wrap:anywhere; }
+.ytx-video-note__feedback { min-height:18px; padding:5px 7px; transform:translateY(-3px); border-radius:6px; color:#86efac; background:rgba(34,197,94,.08); opacity:0; font-size:10px; transition:.18s ease; }
+.ytx-video-note__feedback--visible { transform:translateY(0); opacity:1; }
 .ytx-video-note__tag-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; }
 .ytx-video-note__tag-chips button { padding:3px 6px; border:1px solid rgba(93,181,255,.3); border-radius:999px; color:#bae6fd; background:rgba(14,165,233,.12); cursor:pointer; font:inherit; font-size:10px; }
 .ytx-video-note__picker,.ytx-video-note__tags { position:relative; }
@@ -243,6 +254,8 @@
 .ytx-note-item__edit:hover { color: #fff; background: rgba(255,255,255,.1); }
 .ytx-note-item__text { color: var(--ytx-panel-text, #e4e4e7); font-family: var(--ytx-panel-font, Inter, Roboto, Arial, sans-serif); font-size: var(--ytx-panel-font-size, 13.5px); line-height: 1.55; }
 .ytx-note-item__note { margin-top: 3px; color: #fde68a; font-family: var(--ytx-panel-font, Inter, Roboto, Arial, sans-serif); font-size: var(--ytx-panel-font-size, 13.5px); line-height: 1.55; font-style: italic; }
+.ytx-note-item__tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
+.ytx-note-item__tags span { padding:2px 5px; border-radius:999px; color:#bae6fd; background:rgba(14,165,233,.12); font-size:9px; }
 
 .ytx-note-editor {
   display: none;
@@ -259,6 +272,10 @@
 .ytx-note-editor__text { max-height:120px; padding-right:4px; overflow-y:auto; color:var(--ytx-panel-text, #e4e4e7); font-size:var(--ytx-panel-font-size, 13.5px); line-height:1.55; white-space:normal; overflow-wrap:anywhere; }
 .ytx-note-editor__input { width: 100%; min-height: 58px; box-sizing: border-box; padding: 7px; resize: vertical; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; outline: none; color: #fff; background: rgba(0,0,0,.25); font: inherit; font-size: 12px; }
 .ytx-note-editor__input:focus { border-color: #3ea6ff; }
+.ytx-note-editor__tags { box-sizing:border-box; width:100%; margin-top:7px; padding:7px; border:1px solid rgba(255,255,255,.12); border-radius:7px; outline:none; color:#fff; background:rgba(0,0,0,.25); font:inherit; font-size:11px; }
+.ytx-note-editor__tags:focus { border-color:#3ea6ff; }
+.ytx-note-editor__tags-wrap,.ytx-player-note-editor__tags-wrap { position:relative; }
+.ytx-note-editor__tags-catalog,.ytx-player-note-editor__tags-catalog { top:calc(100% + 3px); }
 .ytx-note-editor__actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 7px; }
 .ytx-note-editor__save { color: #fff; background: rgba(62,166,255,.65); }
 
@@ -269,12 +286,14 @@
 .ytx-panel--compact .ytx-button--close,
 .ytx-panel--compact .ytx-button--search,
 .ytx-panel--compact .ytx-button--notes { width:27px; height:27px; }
+.ytx-panel--compact .ytx-button--general { width:27px; height:27px; }
 .ytx-panel--compact .ytx-panel__actions { gap:6px; }
 .ytx-panel--compact .ytx-button--copy,
 .ytx-panel--compact .ytx-button--collapse-header,
 .ytx-panel--compact .ytx-button--close,
 .ytx-panel--compact .ytx-button--search,
 .ytx-panel--compact .ytx-button--notes { width:27px; height:27px; font-size:13px; }
+.ytx-panel--compact .ytx-button--general { width:27px; height:27px; font-size:13px; }
 
 .ytx-panel--header-collapsed .ytx-panel__header {
   grid-template-columns: 1fr;
@@ -289,6 +308,7 @@
 .ytx-panel--header-collapsed .ytx-button--close,
 .ytx-panel--header-collapsed .ytx-button--search,
 .ytx-panel--header-collapsed .ytx-button--notes,
+.ytx-panel--header-collapsed .ytx-button--general,
 .ytx-panel--header-collapsed .ytx-search { display: none; }
 .ytx-panel--header-collapsed .ytx-panel__actions {
   grid-column: 1 / -1;
