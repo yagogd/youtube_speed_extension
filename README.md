@@ -1,0 +1,41 @@
+# YouTube Companion
+
+Extensión MV3 para controlar la reproducción, consultar la transcripción y guardar notas con timestamp en YouTube. Las notas continúan guardándose localmente y, de forma opcional, cada vídeo puede sincronizarse como una única nota Markdown de Obsidian.
+
+## Integración con Obsidian
+
+La integración usa el plugin comunitario **Local REST API** de Obsidian y mantiene una cola offline local. Abre **Ajustes → Obsidian**, introduce la URL y el token del plugin, prueba la conexión y configura la carpeta raíz, Inbox y formato del archivo. La URL HTTP local predeterminada es `http://127.0.0.1:27123`; HTTPS también funciona si Brave confía en el certificado.
+
+Durante un vídeo, abre el panel de notas para editar:
+
+- la nota general (resumen o conclusiones);
+- la carpeta de destino, o déjala vacía para usar Inbox;
+- tags separados por comas;
+- las notas con timestamp existentes.
+
+Con la integración habilitada, los cambios se guardan localmente y se intentan sincronizar automáticamente tras una breve pausa: nota general, tags, carpeta y notas timestamp. Si Obsidian está cerrado, permanecen pendientes. La extensión reintenta al iniciar Brave, al recuperar/cambiar la configuración y cada minuto. Los botones de sincronización permiten forzar un reintento, pero no son necesarios en el flujo normal.
+
+La carpeta predeterminada es una única ruta relativa al vault, por ejemplo `YouTube/Inbox` o `IA/Modelos`. Cada vídeo puede sustituirla con su propia carpeta. El nombre de archivo es editable y ofrece presets con `{video_title}`, `{channel}`, `{date}` y `{video_id}`. La plantilla Markdown también es editable mediante `{{frontmatter}}`, `{{title}}`, `{{general_note}}`, `{{timestamp_notes}}`, `{{url}}`, `{{channel}}`, `{{video_id}}` y `{{tags}}`.
+
+El editor de organización consulta `GET /tags/` y recorre `GET /vault/` cuando Obsidian está disponible. Muestra selectores visibles y filtrables con los tags y carpetas existentes, incluidas subcarpetas. También permite crear valores nuevos; los tags se muestran como chips y no se convierten automáticamente en carpetas.
+
+La nota generada contiene frontmatter YAML (`source`, `video_id`, canal, URL, fecha y tags), nota general y notas temporales ordenadas. El Markdown del usuario, incluidos wikilinks como `[[Gradient Descent]]`, se conserva. Cada nota temporal puede incluir un enlace directo al instante de YouTube.
+
+## Permisos
+
+- `storage`: datos, configuración y estado de sincronización.
+- `activeTab` y `scripting`: funciones existentes sobre la pestaña de YouTube.
+- acceso a `youtube.com` y `video.google.com`: reproducción y transcripción.
+
+- acceso HTTP/HTTPS exclusivamente a `127.0.0.1` y `localhost`: comunicación con Local REST API;
+- `alarms`: reintentos periódicos de la cola offline.
+
+El token se guarda en el almacenamiento local de la extensión, no se registra y sólo se utiliza desde el service worker para comunicarse con loopback.
+
+## Limitaciones
+
+Local REST API debe estar instalado y Obsidian abierto para completar una sincronización, pero no mientras se toman notas. La cola no es un sistema de resolución de conflictos: la extensión considera sus datos locales como fuente de verdad y sobrescribe su archivo asociado al volver a conectar. Esta versión no consulta tags existentes y no incluye IA, RAG ni búsqueda semántica.
+
+## Pruebas
+
+Ejecuta `node --test tests/*.test.js` desde la raíz del proyecto.

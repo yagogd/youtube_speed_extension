@@ -6,6 +6,7 @@ import { initPauseSettings } from "./pause-settings.js";
 import { initShortcuts } from "./shortcuts.js";
 import { initSpeedControls } from "./speed.js";
 import { initTranscriptSettings } from "./transcript-settings.js";
+import { initObsidianSettings } from "./obsidian-settings.js";
 
 document.addEventListener("DOMContentLoaded", async () => {
   const i18n = globalThis.YTXI18n;
@@ -73,4 +74,5 @@ document.addEventListener("DOMContentLoaded", async () => {
   initSpeedControls({ isExtensionEnabled: appearance.isExtensionEnabled, showNotice, tr });
   initShortcuts({ showNotice, tr });
   initPauseSettings();
+  initObsidianSettings();
 });

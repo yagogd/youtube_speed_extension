@@ -3,8 +3,15 @@
   const ytx = globalThis.__YTX;
   const state = ytx.state;
   const STORAGE_KEY = "ytxSavedNotes";
+  const RECORDS_KEY = "ytxVideoRecords";
+  const SETTINGS_KEY = "ytxObsidianSettings";
   let editorDraft = null;
   let editorReturnFocus = null;
+  let autoSyncTimer = 0;
+  let currentTags = [];
+  let availableTags = [];
+  let availableFolders = [];
+  let catalogRefreshedAt = 0;
 
   function videoId() {
     return new URL(location.href).searchParams.get("v") || "";
@@ -17,6 +24,7 @@
       videoId: id,
       videoTitle: heading?.textContent?.trim() || document.title.replace(/\s*-\s*YouTube\s*$/, ""),
       videoUrl: `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`,
+      channel: document.querySelector("#owner #channel-name a, ytd-video-owner-renderer #channel-name a")?.textContent?.trim() || "",
     };
   }
 
@@ -32,6 +40,145 @@
     await chrome.storage.local.set({ [STORAGE_KEY]: items });
   }
 
+  function readStorage(defaults) { return new Promise((resolve) => chrome.storage.local.get(defaults, resolve)); }
+
+  async function ensureVideoRecord(patch = {}) {
+    const metadata = videoMetadata();
+    if (!metadata.videoId) return null;
+    const stored = await readStorage({ [RECORDS_KEY]: {}, [SETTINGS_KEY]: {} });
+    const records = stored[RECORDS_KEY] || {};
+    const previous = records[metadata.videoId] || {};
+    const record = {
+      generalNote: "", tags: [], folder: "", createdAt: new Date().toISOString(), obsidian: { status: "never", path: "", fingerprint: "", error: "" },
+      ...previous, ...metadata, ...patch,
+      timestampNotes: state.savedNotes.slice(),
+    };
+    if (Object.prototype.hasOwnProperty.call(patch, "folder") && previous.folder !== record.folder && previous.obsidian?.path) {
+      record.obsidian = { ...record.obsidian, status:"pending", path:"", relocateFrom:previous.obsidian.path };
+    }
+    const settings = { ...YTXObsidianCore.DEFAULT_SETTINGS, ...(stored[SETTINGS_KEY] || {}) };
+    const fingerprint = YTXObsidianCore.contentFingerprint(record, settings);
+    if (record.obsidian?.fingerprint && record.obsidian.fingerprint !== fingerprint) record.obsidian = { ...record.obsidian, status: "pending" };
+    records[metadata.videoId] = record;
+    await chrome.storage.local.set({ [RECORDS_KEY]: records });
+    return { record, settings };
+  }
+
+  function scheduleAutoSync(result) {
+    if (result?.settings?.enabled && result.settings.apiUrl && result.settings.apiToken) {
+      clearTimeout(autoSyncTimer);
+      const scheduledVideoId = result.record.videoId;
+      autoSyncTimer = setTimeout(() => chrome.runtime.sendMessage({ type: "YTX_OBSIDIAN_SYNC", videoId: scheduledVideoId }), 800);
+    }
+  }
+
+  function statusText(status, configured, error) {
+    if (!configured) return "Obsidian: no configurado";
+    return ({ never: "Obsidian: listo", pending: "Obsidian: cambios sin guardar", synced: "Obsidian: sincronizado", error: `Obsidian: ${error || "error"}` })[status] || "Obsidian: listo";
+  }
+
+  async function loadVideoRecord() {
+    if (!state.ui || !videoId()) return;
+    const stored = await readStorage({ [RECORDS_KEY]: {}, [SETTINGS_KEY]: {} });
+    const record = stored[RECORDS_KEY]?.[videoId()] || (await ensureVideoRecord())?.record;
+    const settings = { ...YTXObsidianCore.DEFAULT_SETTINGS, ...(stored[SETTINGS_KEY] || {}) };
+    if (!record) return;
+    state.ui.generalNote.value = record.generalNote || "";
+    state.ui.folder.value = record.folder || "";
+    currentTags = YTXObsidianCore.normalizeTags(record.tags);
+    renderTagChips();
+    state.ui.syncStatus.textContent = statusText(record.obsidian?.status, settings.enabled && settings.apiUrl && settings.apiToken, record.obsidian?.error);
+    state.ui.syncButton.disabled = !settings.enabled || !settings.apiUrl || !settings.apiToken;
+  }
+
+  async function saveVideoFields() {
+    const ui = state.ui;
+    const result = await ensureVideoRecord({
+      generalNote: ui.generalNote.value,
+      folder: ui.folder.value.trim(),
+      tags: currentTags,
+      updatedAt: new Date().toISOString(),
+    });
+    scheduleAutoSync(result);
+    await loadVideoRecord();
+  }
+
+  function renderTagChips() {
+    const ui = state.ui;
+    if (!ui?.tagsChips) return;
+    ui.tagsChips.replaceChildren();
+    currentTags.forEach((tag) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.textContent = `#${tag} ×`;
+      chip.setAttribute("aria-label", `Eliminar tag ${tag}`);
+      chip.addEventListener("click", () => {
+        currentTags = currentTags.filter((item) => item !== tag);
+        renderTagChips();
+        saveVideoFields();
+      });
+      ui.tagsChips.appendChild(chip);
+    });
+  }
+
+  function catalogButton(label, onSelect) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.addEventListener("mousedown", (event) => event.preventDefault());
+    button.addEventListener("click", onSelect);
+    return button;
+  }
+
+  function renderCatalog(container, items, query, onSelect, createLabel) {
+    const normalizedQuery = String(query || "").trim().toLocaleLowerCase();
+    const matches = items.filter((item) => !normalizedQuery || item.toLocaleLowerCase().includes(normalizedQuery)).slice(0, 60);
+    const children = matches.map((item) => catalogButton(item, () => onSelect(item)));
+    if (normalizedQuery && !items.some((item) => item.toLocaleLowerCase() === normalizedQuery)) {
+      children.unshift(catalogButton(createLabel(String(query).trim()), () => onSelect(String(query).trim())));
+    }
+    if (!children.length) {
+      const empty = document.createElement("div");
+      empty.className = "ytx-video-note__catalog-empty";
+      empty.textContent = "No hay elementos disponibles.";
+      children.push(empty);
+    }
+    container.replaceChildren(...children);
+    container.hidden = false;
+  }
+
+  function renderTagCatalog() {
+    const ui = state.ui;
+    renderCatalog(ui.tagsCatalog, availableTags.filter((tag) => !currentTags.includes(tag)), ui.tagsInput.value, (tag) => {
+      currentTags = YTXObsidianCore.normalizeTags([...currentTags, tag]);
+      ui.tagsInput.value = "";
+      ui.tagsCatalog.hidden = true;
+      renderTagChips();
+      saveVideoFields();
+    }, (tag) => `Crear tag #${tag.replace(/^#/, "")}`);
+  }
+
+  function renderFolderCatalog() {
+    const ui = state.ui;
+    renderCatalog(ui.folderCatalog, availableFolders, ui.folder.value, (folder) => {
+      ui.folder.value = folder;
+      ui.folderCatalog.hidden = true;
+      saveVideoFields();
+    }, (folder) => `Crear carpeta ${folder}`);
+  }
+
+  function refreshOrganizationCatalog(force = false) {
+    if (!force && Date.now() - catalogRefreshedAt < 15000) return;
+    catalogRefreshedAt = Date.now();
+    chrome.runtime.sendMessage({ type:"YTX_OBSIDIAN_CATALOG" }, (response) => {
+      if (!response?.ok || !state.ui) return;
+      availableTags = response.tags || [];
+      availableFolders = response.folders || [];
+      if (!state.ui.tagsCatalog.hidden) renderTagCatalog();
+      if (!state.ui.folderCatalog.hidden) renderFolderCatalog();
+    });
+  }
+
   async function loadCurrent() {
     const all = await readAll();
     state.savedNotes = all.filter((item) => item.videoId === videoId());
@@ -39,6 +186,7 @@
     refreshMarkers();
     ytx.playerControls?.refreshNoteMarkers();
     ytx.playerControls?.updateNotesButton();
+    await ensureVideoRecord();
     return state.savedNotes;
   }
 
@@ -57,6 +205,7 @@
     all.push(item);
     await writeAll(all);
     await loadCurrent();
+    scheduleAutoSync(await ensureVideoRecord());
     return item;
   }
 
@@ -71,6 +220,7 @@
     };
     await writeAll(all);
     await loadCurrent();
+    scheduleAutoSync(await ensureVideoRecord());
     return all[index];
   }
 
@@ -78,6 +228,7 @@
     const all = await readAll();
     await writeAll(all.filter((item) => item.id !== id));
     await loadCurrent();
+    scheduleAutoSync(await ensureVideoRecord());
   }
 
   function jumpTo(startMs) {
@@ -210,6 +361,7 @@
   }
 
   function attach(ui) {
+    let saveTimer = 0;
     const setNotesOpen = (open) => {
       ui.panel.classList.toggle("ytx-panel--notes-open", open);
       ui.notesToggle.setAttribute("aria-expanded", String(open));
@@ -240,21 +392,77 @@
       onCancel();
     };
     const onStorageChanged = (changes, area) => {
-      if (area === "local" && changes[STORAGE_KEY]) loadCurrent();
+      if (area !== "local") return;
+      if (changes[STORAGE_KEY]) loadCurrent();
+      if (changes[RECORDS_KEY] || changes[SETTINGS_KEY]) loadVideoRecord();
+    };
+    const queueFieldSave = () => { clearTimeout(saveTimer); saveTimer = setTimeout(saveVideoFields, 400); };
+    const commitTags = () => {
+      const additions = YTXObsidianCore.normalizeTags(ui.tagsInput.value);
+      if (!additions.length) return;
+      currentTags = YTXObsidianCore.normalizeTags([...currentTags, ...additions]);
+      ui.tagsInput.value = "";
+      renderTagChips();
+      renderTagCatalog();
+      saveVideoFields();
+    };
+    const onTagKeyDown = (event) => {
+      if (event.key !== "Enter" && event.key !== ",") return;
+      event.preventDefault();
+      commitTags();
+    };
+    const hideCatalog = (event) => { event.currentTarget.nextElementSibling.hidden = true; };
+    const onTagFocus = () => { renderTagCatalog(); refreshOrganizationCatalog(); };
+    const onFolderFocus = () => { renderFolderCatalog(); refreshOrganizationCatalog(); };
+    const onSync = async () => {
+      clearTimeout(saveTimer);
+      await saveVideoFields();
+      clearTimeout(autoSyncTimer);
+      ui.syncButton.disabled = true;
+      ui.syncStatus.textContent = "Obsidian: guardando…";
+      chrome.runtime.sendMessage({ type: "YTX_OBSIDIAN_SYNC", videoId: videoId() }, (response) => {
+        ui.syncButton.disabled = false;
+        if (chrome.runtime.lastError) ui.syncStatus.textContent = `Obsidian: ${chrome.runtime.lastError.message}`;
+        else ui.syncStatus.textContent = response?.ok ? "Obsidian: sincronizado" : `Obsidian: ${response?.error || "error"}`;
+      });
     };
     ui.notesToggle.addEventListener("click", onToggleNotes);
     ui.notesClose.addEventListener("click", onCloseNotes);
     ui.noteEditorCancel.addEventListener("click", onCancel);
     ui.noteEditorSave.addEventListener("click", onSave);
     ui.panel.addEventListener("keydown", onEditorKeyDown);
+    [ui.generalNote, ui.folder].forEach((input) => input.addEventListener("input", queueFieldSave));
+    ui.tagsInput.addEventListener("keydown", onTagKeyDown);
+    ui.tagsInput.addEventListener("change", commitTags);
+    ui.tagsInput.addEventListener("focus", onTagFocus);
+    ui.tagsInput.addEventListener("input", renderTagCatalog);
+    ui.tagsInput.addEventListener("blur", hideCatalog);
+    ui.folder.addEventListener("focus", onFolderFocus);
+    ui.folder.addEventListener("input", renderFolderCatalog);
+    ui.folder.addEventListener("blur", hideCatalog);
+    ui.syncButton.addEventListener("click", onSync);
     chrome.storage.onChanged.addListener(onStorageChanged);
     loadCurrent();
+    loadVideoRecord();
+    refreshOrganizationCatalog();
     return () => {
       ui.notesToggle.removeEventListener("click", onToggleNotes);
       ui.notesClose.removeEventListener("click", onCloseNotes);
       ui.noteEditorCancel.removeEventListener("click", onCancel);
       ui.noteEditorSave.removeEventListener("click", onSave);
       ui.panel.removeEventListener("keydown", onEditorKeyDown);
+      [ui.generalNote, ui.folder].forEach((input) => input.removeEventListener("input", queueFieldSave));
+      ui.tagsInput.removeEventListener("keydown", onTagKeyDown);
+      ui.tagsInput.removeEventListener("change", commitTags);
+      ui.tagsInput.removeEventListener("focus", onTagFocus);
+      ui.tagsInput.removeEventListener("input", renderTagCatalog);
+      ui.tagsInput.removeEventListener("blur", hideCatalog);
+      ui.folder.removeEventListener("focus", onFolderFocus);
+      ui.folder.removeEventListener("input", renderFolderCatalog);
+      ui.folder.removeEventListener("blur", hideCatalog);
+      ui.syncButton.removeEventListener("click", onSync);
+      clearTimeout(saveTimer);
+      clearTimeout(autoSyncTimer);
       chrome.storage.onChanged.removeListener(onStorageChanged);
     };
   }

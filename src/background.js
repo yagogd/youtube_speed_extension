@@ -1,0 +1,120 @@
+importScripts("obsidian/core.js", "obsidian/adapter.js");
+
+const SETTINGS_KEY = "ytxObsidianSettings";
+const RECORDS_KEY = "ytxVideoRecords";
+const RETRY_ALARM = "ytxObsidianRetry";
+
+function storageGet(defaults) { return new Promise((resolve) => chrome.storage.local.get(defaults, resolve)); }
+function configured(settings) { return Boolean(settings.enabled && settings.apiUrl && settings.apiToken); }
+
+async function syncOne(videoId) {
+  const stored = await storageGet({ [SETTINGS_KEY]: {}, [RECORDS_KEY]: {} });
+  const settings = { ...YTXObsidianCore.DEFAULT_SETTINGS, ...(stored[SETTINGS_KEY] || {}) };
+  if (!configured(settings)) throw new Error("La integración con Obsidian no está configurada");
+  const record = stored[RECORDS_KEY]?.[videoId];
+  if (!record) throw new Error("No se encontraron datos locales del vídeo");
+  const desiredPath = YTXObsidianCore.notePath(record, settings);
+  const previousPath = record.obsidian?.relocateFrom || "";
+  const path = record.obsidian?.path || desiredPath;
+  const fingerprint = YTXObsidianCore.contentFingerprint(record, settings);
+  const adapter = new ObsidianAdapter(settings);
+  await adapter.updateNote(path, YTXObsidianCore.renderMarkdown(record, settings));
+  if (previousPath && previousPath !== path) await adapter.removeNote(previousPath);
+
+  const latestStored = await storageGet({ [RECORDS_KEY]: {} });
+  const records = latestStored[RECORDS_KEY] || {};
+  const latest = records[videoId] || record;
+  const stillCurrent = YTXObsidianCore.contentFingerprint(latest, settings) === fingerprint;
+  records[videoId] = { ...latest, obsidian:{ status:stillCurrent ? "synced" : "pending", path, fingerprint, syncedAt:new Date().toISOString(), error:"", relocateFrom:"" } };
+  await chrome.storage.local.set({ [RECORDS_KEY]: records });
+  return { ok:true, path, status:records[videoId].obsidian.status };
+}
+
+async function markPending(videoId, error) {
+  const stored = await storageGet({ [RECORDS_KEY]: {} });
+  const records = stored[RECORDS_KEY] || {};
+  if (!records[videoId]) return;
+  records[videoId] = { ...records[videoId], obsidian:{ ...(records[videoId].obsidian || {}), status:"pending", error:error.message || "Obsidian no está disponible", lastAttemptAt:new Date().toISOString() } };
+  await chrome.storage.local.set({ [RECORDS_KEY]: records });
+}
+
+async function syncPending() {
+  const stored = await storageGet({ [SETTINGS_KEY]: {}, [RECORDS_KEY]: {} });
+  const settings = { ...YTXObsidianCore.DEFAULT_SETTINGS, ...(stored[SETTINGS_KEY] || {}) };
+  if (!configured(settings)) return { synced:0, pending:0 };
+  const ids = Object.entries(stored[RECORDS_KEY] || {})
+    .filter(([, record]) => ["never", "pending", "error"].includes(record.obsidian?.status || "never"))
+    .map(([id]) => id);
+  let synced = 0;
+  for (const id of ids) {
+    try { await syncOne(id); synced += 1; }
+    catch (error) { await markPending(id, error); break; }
+  }
+  return { synced, pending:ids.length - synced };
+}
+
+async function refreshAlarm() {
+  const stored = await storageGet({ [SETTINGS_KEY]: {} });
+  const settings = { ...YTXObsidianCore.DEFAULT_SETTINGS, ...(stored[SETTINGS_KEY] || {}) };
+  if (configured(settings)) chrome.alarms.create(RETRY_ALARM, { delayInMinutes:1, periodInMinutes:1 });
+  else chrome.alarms.clear(RETRY_ALARM);
+}
+
+async function invalidateForSettings(change) {
+  const oldSettings = { ...YTXObsidianCore.DEFAULT_SETTINGS, ...(change.oldValue || {}) };
+  const newSettings = { ...YTXObsidianCore.DEFAULT_SETTINGS, ...(change.newValue || {}) };
+  const relocate = oldSettings.defaultFolder !== newSettings.defaultFolder || oldSettings.fileNameTemplate !== newSettings.fileNameTemplate;
+  const stored = await storageGet({ [RECORDS_KEY]: {} });
+  const records = stored[RECORDS_KEY] || {};
+  Object.keys(records).forEach((id) => {
+    const obsidian = records[id].obsidian || {};
+    records[id] = { ...records[id], obsidian:{ ...obsidian, status:"pending", ...(relocate && obsidian.path ? { path:"", relocateFrom:obsidian.path } : {}) } };
+  });
+  await chrome.storage.local.set({ [RECORDS_KEY]: records });
+}
+
+chrome.runtime.onInstalled.addListener(() => { refreshAlarm(); syncPending(); });
+chrome.runtime.onStartup.addListener(() => { refreshAlarm(); syncPending(); });
+chrome.alarms.onAlarm.addListener((alarm) => { if (alarm.name === RETRY_ALARM) syncPending(); });
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local" || !changes[SETTINGS_KEY]) return;
+  invalidateForSettings(changes[SETTINGS_KEY]).then(() => { refreshAlarm(); syncPending(); });
+});
+refreshAlarm();
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!message || !["YTX_OBSIDIAN_SYNC", "YTX_OBSIDIAN_SYNC_PENDING", "YTX_OBSIDIAN_TEST", "YTX_OBSIDIAN_TAGS", "YTX_OBSIDIAN_CATALOG"].includes(message.type)) return false;
+  (async () => {
+    if (message.type === "YTX_OBSIDIAN_SYNC_PENDING") return syncPending();
+    if (message.type === "YTX_OBSIDIAN_TAGS") {
+      const stored = await storageGet({ [SETTINGS_KEY]: {} });
+      const settings = { ...YTXObsidianCore.DEFAULT_SETTINGS, ...(stored[SETTINGS_KEY] || {}) };
+      if (!configured(settings)) return { ok:false, tags:[], error:"Obsidian no está configurado" };
+      const payload = await new ObsidianAdapter(settings).getTags();
+      return { ok:true, tags:YTXObsidianCore.normalizeTagCatalog(payload) };
+    }
+    if (message.type === "YTX_OBSIDIAN_CATALOG") {
+      const stored = await storageGet({ [SETTINGS_KEY]: {} });
+      const settings = { ...YTXObsidianCore.DEFAULT_SETTINGS, ...(stored[SETTINGS_KEY] || {}) };
+      if (!configured(settings)) return { ok:false, tags:[], folders:[], error:"Obsidian no está configurado" };
+      const adapter = new ObsidianAdapter(settings);
+      const [tagResult, folderResult] = await Promise.allSettled([adapter.getTags(), adapter.getFolders()]);
+      if (tagResult.status === "rejected" && folderResult.status === "rejected") throw tagResult.reason;
+      return {
+        ok:true,
+        tags:tagResult.status === "fulfilled" ? YTXObsidianCore.normalizeTagCatalog(tagResult.value) : [],
+        folders:folderResult.status === "fulfilled" ? folderResult.value : [],
+      };
+    }
+    if (message.type === "YTX_OBSIDIAN_TEST") {
+      const stored = await storageGet({ [SETTINGS_KEY]: {} });
+      const settings = { ...YTXObsidianCore.DEFAULT_SETTINGS, ...(stored[SETTINGS_KEY] || {}) };
+      if (!settings.apiToken) throw new Error("Falta el token de Obsidian");
+      await new ObsidianAdapter(settings).testConnection();
+      return { ok:true };
+    }
+    try { return await syncOne(message.videoId); }
+    catch (error) { await markPending(message.videoId, error); return { ok:false, pending:true, error:error.message }; }
+  })().then(sendResponse).catch((error) => sendResponse({ ok:false, error:error.message || "Error de sincronización" }));
+  return true;
+});

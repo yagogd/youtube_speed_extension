@@ -9,10 +9,13 @@
   font-size: 11.5px;
 }
 
-.field select, .field input {
+.field select, .field input, .field textarea {
   margin-top: 5px;
   color: var(--text);
 }
+.field textarea { min-height:110px; resize:vertical; line-height:1.45; }
+.template-preset-row { display:grid; grid-template-columns:1fr auto; gap:7px; margin-top:12px; }
+.template-preset-row select { min-width:0; padding:8px; border:1px solid var(--border); border-radius:8px; color:inherit; background:var(--surface2); }
 
 .toggle {
   display: flex;
@@ -256,3 +259,5 @@
 .favorite-languages__add button:hover {
   background: rgba(127, 137, 153, .2);
 }
+.obsidian-options { display:grid; gap:7px; margin:12px 0; padding:10px; border:1px solid rgba(128,128,128,.25); border-radius:8px; }
+.obsidian-options label { display:flex; align-items:center; gap:7px; font-size:12px; }

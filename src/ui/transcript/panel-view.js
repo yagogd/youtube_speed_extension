@@ -103,7 +103,56 @@
     notesHeader.append(notesHeading, notesClose);
     const notesList = document.createElement("div");
     notesList.className = "ytx-notes__list";
-    notesDrawer.append(notesHeader, notesList);
+    const videoNote = document.createElement("div");
+    videoNote.className = "ytx-video-note";
+    const generalLabel = document.createElement("label");
+    generalLabel.textContent = "NOTA GENERAL";
+    const generalNote = document.createElement("textarea");
+    generalNote.className = "ytx-video-note__general";
+    generalNote.placeholder = "Resumen, conclusiones e ideas generales…";
+    generalLabel.appendChild(generalNote);
+    const organization = document.createElement("details");
+    organization.className = "ytx-video-note__organization";
+    const organizationSummary = document.createElement("summary");
+    organizationSummary.textContent = "ORGANIZACIÓN";
+    const folder = document.createElement("input");
+    folder.className = "ytx-video-note__folder";
+    folder.placeholder = "Carpeta específica (opcional)";
+    folder.setAttribute("aria-label", "Carpeta de Obsidian");
+    folder.setAttribute("autocomplete", "off");
+    const folderCatalog = document.createElement("div");
+    folderCatalog.className = "ytx-video-note__catalog";
+    folderCatalog.hidden = true;
+    const folderWrap = document.createElement("div");
+    folderWrap.className = "ytx-video-note__picker";
+    folderWrap.append(folder, folderCatalog);
+    const tagsWrap = document.createElement("div");
+    tagsWrap.className = "ytx-video-note__tags";
+    const tagsChips = document.createElement("div");
+    tagsChips.className = "ytx-video-note__tag-chips";
+    const tagsInput = document.createElement("input");
+    tagsInput.placeholder = "Buscar o crear tag…";
+    tagsInput.setAttribute("aria-label", "Buscar o crear tag de Obsidian");
+    tagsInput.setAttribute("autocomplete", "off");
+    const tagsCatalog = document.createElement("div");
+    tagsCatalog.className = "ytx-video-note__catalog";
+    tagsCatalog.hidden = true;
+    tagsWrap.append(tagsChips, tagsInput, tagsCatalog);
+    organization.append(organizationSummary, folderWrap, tagsWrap);
+    const syncRow = document.createElement("div");
+    syncRow.className = "ytx-video-note__sync";
+    const syncStatus = document.createElement("span");
+    syncStatus.className = "ytx-video-note__status";
+    syncStatus.textContent = "Obsidian: no configurado";
+    const syncButton = document.createElement("button");
+    syncButton.type = "button";
+    syncButton.textContent = "Sincronizar";
+    syncRow.append(syncStatus, syncButton);
+    const timestampHeading = document.createElement("strong");
+    timestampHeading.className = "ytx-video-note__timestamp-heading";
+    timestampHeading.textContent = "NOTAS CON TIMESTAMP";
+    videoNote.append(generalLabel, organization, syncRow, timestampHeading);
+    notesDrawer.append(notesHeader, videoNote, notesList);
 
     const noteEditor = document.createElement("section");
     noteEditor.className = "ytx-note-editor";
@@ -147,7 +196,7 @@
     return {
       panel, header, title, content, headerActions, ...trackUi,
       searchToggle, searchBar, searchInput, searchCounter, searchPrevious, searchNext, searchClose,
-      notesToggle, notesDrawer, notesClose, notesList,
+      notesToggle, notesDrawer, notesClose, notesList, generalNote, folder, folderCatalog, tagsInput, tagsChips, tagsCatalog, syncStatus, syncButton,
       noteEditor, noteEditorTime, noteEditorText, noteEditorInput, noteEditorCancel, noteEditorSave,
       collapseHeaderButton, copyButton, closeButton, cleanups: [],
     };
