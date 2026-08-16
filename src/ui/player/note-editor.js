@@ -17,13 +17,24 @@
     }
 
     function applyAppearance(editor) {
-      const appearance = ytx.state.appearance || {};
-      const opacity = .54;
-      editor.style.setProperty("--ytx-editor-background", `rgba(8,8,10,${opacity})`);
+      const settings = ytx.state.settings || {};
+      const shared = settings.notesAppearanceMode !== "separate";
+      const appearance = shared ? (ytx.state.notesAppearance || {}) : (ytx.state.noteEditorAppearance || {});
+      const hex = /^#[0-9a-f]{6}$/i.test(appearance.background) ? appearance.background : "#08080a";
+      const red = parseInt(hex.slice(1, 3), 16);
+      const green = parseInt(hex.slice(3, 5), 16);
+      const blue = parseInt(hex.slice(5, 7), 16);
+      const opacity = Math.min(1, Math.max(0.35, Number(appearance.opacity) || 0.54));
+      editor.style.setProperty("--ytx-editor-background", `rgba(${red}, ${green}, ${blue}, ${opacity})`);
       editor.style.setProperty("--ytx-editor-text", appearance.text || "#e4e4e7");
       editor.style.setProperty("--ytx-editor-font", appearance.font || "Inter, Roboto, Arial, sans-serif");
       editor.style.setProperty("--ytx-editor-font-size", `${Math.min(22, Math.max(10, Number(appearance.fontSize) || 13.5))}px`);
     }
+
+    let activeEditor = null;
+    ytx.noteEditorAppearance = {
+      apply: () => { if (activeEditor) applyAppearance(activeEditor); },
+    };
 
     function makeDraggable(editor, handle, player) {
       let removeActiveDrag = null;
@@ -70,13 +81,15 @@
       active.dragCleanup();
       active.editor.remove();
       active.returnFocus?.focus();
+      activeEditor = null;
       active = null;
     }
 
     function open(player, video, returnFocus) {
       if (!player || !video) return;
       close();
-      const initialSeconds = Math.max(0, video.currentTime - 3);
+      const offset = Math.min(30, Math.max(0, Number(ytx.state.settings?.noteStartOffset) || 3));
+      const initialSeconds = Math.max(0, video.currentTime - offset);
       let manualEnd = false;
       const editor = document.createElement("section");
       editor.className = "ytx-player-note-editor";
@@ -229,6 +242,7 @@
         if (!manualEnd && active?.editor === editor) endInput.value = formatSeconds(video.currentTime);
       }, 250);
       active = { editor, timer, keyboardCleanup, dragCleanup, returnFocus };
+      activeEditor = editor;
       cancel.addEventListener("click", close);
       closeButton.addEventListener("click", close);
       save.addEventListener("click", saveNote);

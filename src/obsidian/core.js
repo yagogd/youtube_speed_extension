@@ -23,8 +23,7 @@
     includeGeneralNote: true,
     includeTimestampNotes: true,
     includeTags: true,
-    includeTimestampLinks: true,
-    contentOrder: ["source", "videoId", "channel", "url", "noteCreatedDate", "videoPublishedDate", "tags", "generalNote", "timestampNotes", "timestampLinks"],
+    contentOrder: ["source", "videoId", "channel", "url", "noteCreatedDate", "videoPublishedDate", "tags", "generalNote", "timestampNotes"],
   });
 
   function normalizeTags(tags) {
@@ -93,11 +92,13 @@
 
   function timestampNotes(record, settings) {
     return (record.timestampNotes || []).slice().sort((a, b) => a.startMs - b.startMs).map((note) => {
-      const body = [note.text, note.note].filter(Boolean).join("\n\n") || "Saved moment";
+      const transcriptText = note.text ? `*${String(note.text).trim()}*` : "";
+      const body = [transcriptText, note.note].filter(Boolean).join("\n\n") || "Saved moment";
       const noteTags = normalizeTags(note.tags);
-      const tagLine = noteTags.length ? `\n\n**Tags:** ${noteTags.map((tag) => `#${tag}`).join(" ")}` : "";
-      const link = settings.includeTimestampLinks ? `\n\n[Ver en YouTube](${timestampUrl(record.videoUrl, note.startMs)})` : "";
-      return `### ${formatTime(note.startMs)}\n\n${body}${tagLine}${link}`;
+      const tagLine = noteTags.length ? noteTags.map((tag) => `#${tag}`).join(" ") : "";
+      const timeLabel = formatTime(note.startMs);
+      const heading = `### [${timeLabel}](${record.videoUrl})`;
+      return [heading, tagLine, body].filter(Boolean).join("\n");
     }).join("\n\n");
   }
 

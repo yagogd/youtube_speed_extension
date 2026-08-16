@@ -6,8 +6,8 @@ const DEFAULTS = {
   enabled:false, apiUrl:"http://127.0.0.1:27123", apiToken:"", defaultFolder:"YouTube/Inbox",
   fileNameTemplate:"{video_title}", noteTemplate:DEFAULT_NOTE_TEMPLATE, saveBehavior:"auto",
   includeMetadata:true, includeSource:true, includeVideoId:true, includeChannel:true, includeUrl:true,
-  includeNoteCreatedDate:true, includeVideoPublishedDate:true, includeGeneralNote:true, includeTimestampNotes:true, includeTags:true, includeTimestampLinks:true,
-  contentSettingsVersion:2, contentOrderVersion:3, contentOrder:["source", "videoId", "channel", "url", "noteCreatedDate", "videoPublishedDate", "tags", "generalNote", "timestampNotes", "timestampLinks"], fileNamePresets:[], noteTemplatePresets:[],
+  includeNoteCreatedDate:true, includeVideoPublishedDate:true, includeGeneralNote:true, includeTimestampNotes:true, includeTags:true,
+  contentSettingsVersion:2, contentOrderVersion:3, contentOrder:["source", "videoId", "channel", "url", "noteCreatedDate", "videoPublishedDate", "tags", "generalNote", "timestampNotes"], fileNamePresets:[], noteTemplatePresets:[],
 };
 const BUILTIN_NAMES = [
   { name:"Título", value:"{video_title}" },
@@ -198,7 +198,6 @@ function createContentOrganizer(options, status) {
     { id:"generalNote", input:"obsidian-include-general-note", title:"Nota general", copy:"Resumen o conclusiones" },
     { id:"timestampNotes", input:"obsidian-include-timestamp-notes", title:"Notas timestamp", copy:"Momentos guardados del vídeo" },
     { id:"tags", input:"obsidian-include-tags", title:"Tags", copy:"Se exportan en el frontmatter" },
-    { id:"timestampLinks", input:"obsidian-include-timestamp-links", title:"Enlaces a YouTube", copy:"Se incluyen dentro de cada timestamp" },
   ].map((item) => {
     const input = document.getElementById(item.input);
     return { ...item, element:input, label:input.closest("label") };
@@ -294,7 +293,7 @@ export async function initObsidianSettings() {
     return wrapper;
   });
   metadataLabel.replaceWith(...metadataOptions);
-  const mapping = { enabled:"enabled", "api-url":"apiUrl", "api-token":"apiToken", "default-folder":"defaultFolder", "file-name-template":"fileNameTemplate", "note-template":"noteTemplate", "include-source":"includeSource", "include-video-id":"includeVideoId", "include-channel":"includeChannel", "include-url":"includeUrl", "include-note-created-date":"includeNoteCreatedDate", "include-video-published-date":"includeVideoPublishedDate", "include-general-note":"includeGeneralNote", "include-timestamp-notes":"includeTimestampNotes", "include-tags":"includeTags", "include-timestamp-links":"includeTimestampLinks" };
+  const mapping = { enabled:"enabled", "api-url":"apiUrl", "api-token":"apiToken", "default-folder":"defaultFolder", "file-name-template":"fileNameTemplate", "note-template":"noteTemplate", "include-source":"includeSource", "include-video-id":"includeVideoId", "include-channel":"includeChannel", "include-url":"includeUrl", "include-note-created-date":"includeNoteCreatedDate", "include-video-published-date":"includeVideoPublishedDate", "include-general-note":"includeGeneralNote", "include-timestamp-notes":"includeTimestampNotes", "include-tags":"includeTags" };
   const status = document.getElementById("obsidian-test-status");
   const previous = (await getStored({ [KEY]:{} }))[KEY] || {};
   if (previous.contentSettingsVersion !== 2) {

@@ -131,7 +131,13 @@
     currentUi = { player, group, transcriptButton, speedButton, notesButton, notesCount, addNoteButton, speedMenu, video };
     noteMarkers.mount(player, video);
     transcriptButton.addEventListener("click", toggleTranscript);
-    notesButton.addEventListener("click", () => openNotes(false));
+    notesButton.addEventListener("click", () => {
+      if (state.ui?.panel?.classList.contains("ytx-panel--notes-open")) {
+        state.ui.notesWorkspaceClose?.click();
+      } else {
+        openNotes(false);
+      }
+    });
     addNoteButton.addEventListener("click", () => noteEditor.open(player, video, addNoteButton));
     updateTranscriptButton();
     updateNotesButton();

@@ -5,7 +5,7 @@
   const STORAGE_KEY = "ytxSavedNotes";
   const RECORDS_KEY = "ytxVideoRecords";
   const SETTINGS_KEY = "ytxObsidianSettings";
-  const EXPORT_SETTING_KEYS = ["defaultFolder", "fileNameTemplate", "noteTemplate", "includeSource", "includeVideoId", "includeChannel", "includeUrl", "includeNoteCreatedDate", "includeVideoPublishedDate", "includeGeneralNote", "includeTimestampNotes", "includeTags", "includeTimestampLinks", "contentOrder"];
+  const EXPORT_SETTING_KEYS = ["defaultFolder", "fileNameTemplate", "noteTemplate", "includeSource", "includeVideoId", "includeChannel", "includeUrl", "includeNoteCreatedDate", "includeVideoPublishedDate", "includeGeneralNote", "includeTimestampNotes", "includeTags", "contentOrder"];
   let editorDraft = null;
   let editorReturnFocus = null;
   let autoSyncTimer = 0;
@@ -542,6 +542,8 @@
       }
       ui.panel.classList.toggle("ytx-panel--general-open", open);
       ui.notesWorkspace.classList.toggle("ytx-panel--general-open", open);
+      ui.panel.classList.toggle("ytx-panel--organization-open", open);
+      ui.notesWorkspace.classList.toggle("ytx-panel--organization-open", open);
       if (open) ui.notesWorkspace.classList.add("ytx-video-notes-window--active");
       ui.generalToggle.setAttribute("aria-expanded", String(open));
       if (open) refreshOrganizationCatalog();

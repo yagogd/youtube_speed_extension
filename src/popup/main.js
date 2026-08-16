@@ -6,6 +6,7 @@ import { initPauseSettings } from "./pause-settings.js";
 import { initShortcuts } from "./shortcuts.js";
 import { initSpeedControls } from "./speed.js";
 import { initTranscriptSettings } from "./transcript-settings.js";
+import { initNotesSettings } from "./notes-settings.js";
 import { initObsidianSettings } from "./obsidian-settings.js";
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -63,12 +64,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     continuitySettings.closest("details"),
     transcriptEnabled.closest("details"),
     document.getElementById("panel-background").closest("details"),
+    document.getElementById("notes-appearance-mode").closest("details"),
     document.getElementById("preset-editor-list").closest("details"),
     document.getElementById("shortcut-list").closest("details"),
   ].forEach((section) => settingsContent.appendChild(section));
 
   const notesController = createNotesController({ tr });
   initTranscriptSettings();
+  initNotesSettings();
   const appearance = await initAppearance({ onExtensionStateChange: () => {} });
   initNavigation({ notesController });
   initSpeedControls({ isExtensionEnabled: appearance.isExtensionEnabled, showNotice, tr });

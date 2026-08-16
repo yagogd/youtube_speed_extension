@@ -9,18 +9,33 @@
   function applyAppearance() {
     const panel = state.ui?.panel;
     if (!panel) return;
-    const appearance = state.appearance || {};
-    const hex = /^#[0-9a-f]{6}$/i.test(appearance.background) ? appearance.background : "#1e1e22";
-    const red = parseInt(hex.slice(1, 3), 16);
-    const green = parseInt(hex.slice(3, 5), 16);
-    const blue = parseInt(hex.slice(5, 7), 16);
-    const opacity = Math.min(1, Math.max(0.35, Number(appearance.opacity) || 0.84));
-    [panel, state.ui?.notesWorkspace].filter(Boolean).forEach((surface) => {
-      surface.style.setProperty("--ytx-panel-background", `rgba(${red}, ${green}, ${blue}, ${opacity})`);
-      surface.style.setProperty("--ytx-panel-text", appearance.text || "#e4e4e7");
-      surface.style.setProperty("--ytx-panel-font", appearance.font || "Inter, Roboto, Arial, sans-serif");
-      surface.style.setProperty("--ytx-panel-font-size", `${Math.min(22, Math.max(10, Number(appearance.fontSize) || 13.5))}px`);
-    });
+    const rgbaOf = (appearance, fallback) => {
+      const hex = /^#[0-9a-f]{6}$/i.test(appearance?.background) ? appearance.background : fallback;
+      const red = parseInt(hex.slice(1, 3), 16);
+      const green = parseInt(hex.slice(3, 5), 16);
+      const blue = parseInt(hex.slice(5, 7), 16);
+      const opacity = Math.min(1, Math.max(0.35, Number(appearance?.opacity) || 0.84));
+      return `rgba(${red}, ${green}, ${blue}, ${opacity})`;
+    };
+    const textOf = (appearance, fallback) => appearance?.text || fallback;
+    const fontOf = (appearance, fallback) => appearance?.font || fallback;
+    const sizeOf = (appearance) => `${Math.min(22, Math.max(10, Number(appearance?.fontSize) || 13.5))}px`;
+
+    const transcript = state.appearance || {};
+    panel.style.setProperty("--ytx-panel-background", rgbaOf(transcript, "#1e1e22"));
+    panel.style.setProperty("--ytx-panel-text", textOf(transcript, "#e4e4e7"));
+    panel.style.setProperty("--ytx-panel-font", fontOf(transcript, "Inter, Roboto, Arial, sans-serif"));
+    panel.style.setProperty("--ytx-panel-font-size", sizeOf(transcript));
+
+    const notes = state.ui?.notesWorkspace;
+    if (notes) {
+      const shared = state.settings?.notesAppearanceMode !== "separate";
+      const appearance = shared ? (state.notesAppearance || {}) : (state.notesWindowAppearance || {});
+      notes.style.setProperty("--ytx-panel-background", rgbaOf(appearance, "#08080a"));
+      notes.style.setProperty("--ytx-panel-text", textOf(appearance, "#e4e4e7"));
+      notes.style.setProperty("--ytx-panel-font", fontOf(appearance, "Inter, Roboto, Arial, sans-serif"));
+      notes.style.setProperty("--ytx-panel-font-size", sizeOf(appearance));
+    }
   }
 
   function keepNotesWindowAnchored(ui, player) {

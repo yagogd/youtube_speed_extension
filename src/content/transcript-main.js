@@ -26,7 +26,9 @@
       changes.transcriptDisplayLeadMs ||
       changes.transcriptRememberLayout ||
       changes.transcriptPanelBackground || changes.transcriptPanelTextColor || changes.transcriptPanelFont ||
-      changes.transcriptPanelFontSize || changes.transcriptPanelOpacity;
+      changes.transcriptPanelFontSize || changes.transcriptPanelOpacity ||
+      changes.notesAppearanceMode || changes.notesAppearance || changes.notesWindowAppearance ||
+      changes.noteEditorAppearance || changes.noteStartOffset;
     if (!relevant) return;
     const needsTranscriptRequest = Boolean(changes.extensionEnabled || changes.transcriptEnabled || changes.transcriptPreferredLanguage);
     if (changes.extensionEnabled) {
@@ -63,12 +65,27 @@
     if (changes.transcriptPanelFont) state.appearance.font = changes.transcriptPanelFont.newValue;
     if (changes.transcriptPanelFontSize) state.appearance.fontSize = changes.transcriptPanelFontSize.newValue;
     if (changes.transcriptPanelOpacity) state.appearance.opacity = changes.transcriptPanelOpacity.newValue;
+    if (changes.notesAppearanceMode) state.settings.notesAppearanceMode = changes.notesAppearanceMode.newValue === "separate" ? "separate" : "shared";
+    if (changes.notesAppearance) state.notesAppearance = changes.notesAppearance.newValue;
+    if (changes.notesWindowAppearance) state.notesWindowAppearance = changes.notesWindowAppearance.newValue;
+    if (changes.noteEditorAppearance) state.noteEditorAppearance = changes.noteEditorAppearance.newValue;
+    if (changes.noteStartOffset) state.settings.noteStartOffset = Math.min(30, Math.max(0, Number(changes.noteStartOffset.newValue) || 3));
 
     const appearanceChanged = changes.transcriptPanelBackground || changes.transcriptPanelTextColor ||
       changes.transcriptPanelFont || changes.transcriptPanelFontSize || changes.transcriptPanelOpacity;
+    const notesAppearanceChanged = changes.notesAppearanceMode || changes.notesAppearance ||
+      changes.notesWindowAppearance || changes.noteEditorAppearance;
     const functionalChanged = changes.extensionEnabled || changes.transcriptEnabled || changes.transcriptMode ||
       changes.transcriptGrouping || changes.transcriptPreferredLanguage || changes.transcriptAutoOpenNextVideo;
     const timingChanged = Boolean(changes.transcriptDisplayLeadMs);
+    const offsetChanged = Boolean(changes.noteStartOffset);
+    if (offsetChanged && !appearanceChanged && !functionalChanged && !timingChanged &&
+      !changes.transcriptFavoriteLanguages && !notesAppearanceChanged) return;
+    if (notesAppearanceChanged && !functionalChanged && !timingChanged) {
+      ytx.panel.applyAppearance?.();
+      ytx.noteEditorAppearance?.apply?.();
+      return;
+    }
     if (timingChanged && !appearanceChanged && !functionalChanged && !changes.transcriptFavoriteLanguages) {
       ytx.sync.updateActiveBlock();
       return;
@@ -107,6 +124,11 @@
         transcriptPanelFontSize: 13.5,
         transcriptPanelOpacity: 0.84,
         transcriptDisplayLeadMs: 1100,
+        notesAppearanceMode: "shared",
+        notesAppearance: { background: "#08080a", text: "#e4e4e7", font: "Inter, Roboto, Arial, sans-serif", fontSize: 13.5, opacity: 0.54 },
+        notesWindowAppearance: { background: "#08080a", text: "#e4e4e7", font: "Inter, Roboto, Arial, sans-serif", fontSize: 13.5, opacity: 0.54 },
+        noteEditorAppearance: { background: "#08080a", text: "#e4e4e7", font: "Inter, Roboto, Arial, sans-serif", fontSize: 13.5, opacity: 0.54 },
+        noteStartOffset: 3,
       }, (stored) => {
         state.settings.enabled = stored.transcriptEnabled;
         state.settings.extensionEnabled = stored.extensionEnabled;
@@ -118,6 +140,11 @@
         state.settings.autoOpenNextVideo = stored.transcriptAutoOpenNextVideo;
         state.settings.rememberLayout = stored.transcriptRememberLayout !== false;
         state.settings.displayLeadMs = Math.min(10000, Math.max(-10000, Number(stored.transcriptDisplayLeadMs) || 0));
+        state.settings.notesAppearanceMode = stored.notesAppearanceMode === "separate" ? "separate" : "shared";
+        state.settings.noteStartOffset = Math.min(30, Math.max(0, Number(stored.noteStartOffset) || 3));
+        state.notesAppearance = stored.notesAppearance;
+        state.notesWindowAppearance = stored.notesWindowAppearance;
+        state.noteEditorAppearance = stored.noteEditorAppearance;
         state.appearance = {
           background: stored.transcriptPanelBackground,
           text: stored.transcriptPanelTextColor,

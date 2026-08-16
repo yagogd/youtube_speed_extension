@@ -35,8 +35,8 @@ test("genera Markdown Obsidian ordenado y conserva wikilinks", () => {
   assert.match(markdown, /video_published: 2025-01-20/);
   assert.match(markdown, /- "machine-learning"/);
   assert.match(markdown, /\[\[Backpropagation\]\]/);
-  assert.ok(markdown.indexOf("### 2:41") < markdown.indexOf("### 7:32"));
-  assert.match(markdown, /watch\?v=abc123&t=161s/);
+  assert.ok(markdown.indexOf("### [2:41]") < markdown.indexOf("### [7:32]"));
+  assert.match(markdown, /### \[2:41\]\(https:\/\/www\.youtube\.com\/watch\?v=abc123\)/);
   assert.doesNotMatch(markdown, /^# Neural Networks/m);
 });
 
@@ -53,7 +53,7 @@ test("permite elegir cada dato del frontmatter por separado", () => {
 test("incluye tags específicos dentro de cada nota timestamp", () => {
   const tagged = { ...record, timestampNotes:[{ ...record.timestampNotes[0], tags:["concepto", "repasar"] }] };
   const markdown = core.renderMarkdown(tagged, core.DEFAULT_SETTINGS);
-  assert.match(markdown, /\*\*Tags:\*\* #concepto #repasar/);
+  assert.match(markdown, /### \[7:32\]\([^)]*\)\n#concepto #repasar\n\*Ejemplo\*/);
 });
 
 test("mantiene el frontmatter primero y respeta el orden del resto", () => {
@@ -76,7 +76,7 @@ test("renderiza una plantilla Markdown personalizada", () => {
   assert.match(markdown, /# Neural Networks: A\/B\?/);
   assert.match(markdown, /Canal: 3Blue1Brown/);
   assert.match(markdown, /\[\[Backpropagation\]\]/);
-  assert.doesNotMatch(markdown, /### 2:41/);
+  assert.doesNotMatch(markdown, /### \[2:41\]/);
 });
 
 test("añade el contenido activado aunque una plantilla personalizada olvide sus variables", () => {
@@ -84,7 +84,7 @@ test("añade el contenido activado aunque una plantilla personalizada olvide sus
   assert.match(markdown, /## Nota general/);
   assert.match(markdown, /Relacionar con \[\[Backpropagation\]\]/);
   assert.match(markdown, /## Notas/);
-  assert.match(markdown, /### 2:41/);
+  assert.match(markdown, /### \[2:41\]/);
 });
 
 test("conserva los saltos Markdown escritos por el usuario", () => {
