@@ -1,4 +1,4 @@
-# YouTube Companion
+# FrameNotes
 
 Extensión MV3 para controlar la reproducción, consultar la transcripción y guardar notas con timestamp en YouTube. Las notas continúan guardándose localmente y, de forma opcional, cada vídeo puede sincronizarse como una única nota Markdown de Obsidian.
 

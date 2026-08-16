@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>YouTube Companion</title>
+  <title>FrameNotes</title>
   <link rel="stylesheet" href="./styles/base.css">
   <link rel="stylesheet" href="./styles/speed.css">
   <link rel="stylesheet" href="./styles/settings.css">
@@ -15,7 +15,7 @@
 </head>
 <body>
   <main id="main-view" class="view">
-    <header class="topbar"><div class="brand"><span class="brand__mark">▶</span><span><strong>YouTube Companion</strong><small id="extension-status">Control rápido</small></span></div><button id="theme-toggle" class="icon-button" title="Cambiar tema" aria-label="Cambiar entre tema claro y oscuro">☀</button><button id="open-settings" class="icon-button" title="Abrir ajustes" aria-label="Abrir ajustes">⚙</button><button class="icon-button language-toggle" type="button" title="Cambiar a inglés" aria-label="Cambiar a inglés">ES</button><button id="extension-power" class="icon-button power-button" title="Apagar extensión" aria-label="Apagar extensión" aria-pressed="true">⏻</button></header>
+    <header class="topbar"><div class="brand"><img class="brand__mark" src="../../assets/framenotes_icon_32.png" alt="FrameNotes" /><span><strong>FrameNotes</strong><small id="extension-status">Control rápido</small></span></div><button id="theme-toggle" class="icon-button" title="Cambiar tema" aria-label="Cambiar entre tema claro y oscuro">☀</button><button id="open-settings" class="icon-button" title="Abrir ajustes" aria-label="Abrir ajustes">⚙</button><button class="icon-button language-toggle" type="button" title="Cambiar a inglés" aria-label="Cambiar a inglés">ES</button><button id="extension-power" class="icon-button power-button" title="Apagar extensión" aria-label="Apagar extensión" aria-pressed="true">⏻</button></header>
     <div class="content">
       <section class="card"><div class="card__heading speed-heading"><h2>Velocidad</h2></div><div class="speed-current"><input id="speed" class="speed-value" aria-label="Velocidad exacta; pulsa para editar" title="Pulsa para escribir una velocidad" type="number" step="0.01" min="0.1" max="16" value="1" /></div><div class="speed-row"><button id="speed-down" class="speed-step" title="Reducir 0,25" aria-label="Reducir velocidad 0,25">−</button><input id="speed-slider" class="speed-slider" aria-label="Deslizador de velocidad" type="range" min="0.1" max="16" step="0.1" value="1" /><button id="speed-up" class="speed-step" title="Aumentar 0,25" aria-label="Aumentar velocidad 0,25">+</button></div><div class="preset-grid" aria-label="Velocidades predefinidas"><button class="preset" data-speed="0.5">0.5</button><button class="preset" data-speed="1">1</button><button class="preset" data-speed="1.5">1.5</button><button class="preset" data-speed="2">2</button><button class="preset" data-speed="2.5">2.5</button><button class="preset" data-speed="3">3</button><button class="preset" data-speed="4">4</button><button class="preset" data-speed="8">8</button></div></section>
       <section class="feature-list" aria-label="Funciones rápidas">

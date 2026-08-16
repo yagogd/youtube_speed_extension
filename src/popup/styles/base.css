@@ -88,13 +88,10 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 
 .brand__mark {
-  display: grid;
-  place-items: center;
   width: 32px;
   height: 32px;
   border-radius: 10px;
-  background: var(--accent);
-  font-size: 15px;
+  object-fit: contain;
 }
 
 .brand strong, .topbar h1 {
