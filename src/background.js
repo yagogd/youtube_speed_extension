@@ -3,7 +3,7 @@ importScripts("obsidian/core.js", "obsidian/adapter.js");
 const SETTINGS_KEY = "ytxObsidianSettings";
 const RECORDS_KEY = "ytxVideoRecords";
 const RETRY_ALARM = "ytxObsidianRetry";
-const EXPORT_SETTING_KEYS = ["defaultFolder", "fileNameTemplate", "noteTemplate", "includeSource", "includeVideoId", "includeChannel", "includeUrl", "includeNoteCreatedDate", "includeVideoPublishedDate", "includeGeneralNote", "includeTimestampNotes", "includeTags", "contentOrder"];
+const EXPORT_SETTING_KEYS = ["defaultFolder", "fileNameTemplate", "noteTemplate", "generalNoteTemplate", "timestampNoteTemplate", "includeSource", "includeVideoId", "includeChannel", "includeUrl", "includeNoteCreatedDate", "includeVideoPublishedDate", "includeGeneralNote", "includeTimestampNotes", "includeTags", "contentOrder"];
 
 function storageGet(defaults) { return new Promise((resolve) => chrome.storage.local.get(defaults, resolve)); }
 function configured(settings) { return Boolean(settings.enabled && settings.apiUrl && settings.apiToken); }

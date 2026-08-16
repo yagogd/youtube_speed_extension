@@ -11,6 +11,13 @@ export function createNotesController({ tr = (value) => value } = {}) {
   const section = document.getElementById("global-notes");
   const exportButton = document.getElementById("notes-export");
   const list = document.getElementById("global-notes-list");
+  const deleteAllButton = document.createElement("button");
+  deleteAllButton.type = "button";
+  deleteAllButton.className = "danger notes-export";
+  deleteAllButton.textContent = "Borrar todo";
+  deleteAllButton.title = "Eliminar todas las notas y vídeos guardados en Chrome";
+  deleteAllButton.setAttribute("aria-label", "Eliminar todas las notas y vídeos guardados en Chrome");
+  exportButton.after(deleteAllButton);
   const headingCopy = section.querySelector(".card__heading p");
   if (headingCopy) headingCopy.textContent = "Organizada por carpetas, vídeos y momentos.";
   const toolbar = document.createElement("div");
@@ -25,7 +32,7 @@ export function createNotesController({ tr = (value) => value } = {}) {
   list.before(toolbar);
   let cache = null;
 
-  function confirmDeletion() {
+  function confirmDeletion(titleText = "Eliminar nota", message = "¿Quieres eliminar esta nota? Esta acción no se puede deshacer.") {
     document.querySelector(".popup-notice")?.remove();
     return new Promise((resolve) => {
       const overlay = document.createElement("div");
@@ -34,9 +41,9 @@ export function createNotesController({ tr = (value) => value } = {}) {
       const box = document.createElement("div");
       box.className = "popup-notice__box";
       const title = document.createElement("strong");
-      title.textContent = tr("Eliminar nota");
+      title.textContent = tr(titleText);
       const text = document.createElement("p");
-      text.textContent = tr("¿Quieres eliminar esta nota? Esta acción no se puede deshacer.");
+      text.textContent = tr(message);
       const actions = document.createElement("div");
       actions.className = "popup-confirm__actions";
       const cancel = document.createElement("button");
@@ -176,7 +183,24 @@ export function createNotesController({ tr = (value) => value } = {}) {
       const heading = document.createElement("summary");
       const title = document.createElement("span"); title.className = "notes-video__title"; title.dataset.i18nSkip = ""; title.textContent = record.videoTitle || "Vídeo de YouTube";
       const count = document.createElement("span"); count.className = "notes-tree-count"; count.textContent = String(videoNotes.length);
-      heading.append(title, count);
+      const removeVideo = document.createElement("button");
+      removeVideo.type = "button";
+      removeVideo.className = "notes-video__remove";
+      removeVideo.textContent = "Borrar";
+      removeVideo.title = "Eliminar este vídeo y todas sus notas";
+      removeVideo.setAttribute("aria-label", "Eliminar este vídeo y todas sus notas");
+      removeVideo.onclick = async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!(await confirmDeletion("Eliminar vídeo", "¿Quieres eliminar este vídeo y todas sus notas? Esta acción no se puede deshacer."))) return;
+        const remainingNotes = notes.filter((note) => note.videoId !== record.videoId);
+        chrome.storage.local.get({ [RECORDS_KEY]:{} }, (stored) => {
+          const records = stored[RECORDS_KEY] || {};
+          delete records[record.videoId];
+          chrome.storage.local.set({ [NOTES_KEY]: remainingNotes, [RECORDS_KEY]: records }, load);
+        });
+      };
+      heading.append(title, count, removeVideo);
       const body = document.createElement("div"); body.className = "notes-video__body";
       const link = document.createElement("a"); link.className = "notes-video__link"; link.href = record.videoUrl; link.target = "_blank";
       if (record.channel) { const channel = document.createElement("span"); channel.dataset.i18nSkip = ""; channel.textContent = record.channel; link.append(channel, document.createTextNode(" · ")); }
@@ -218,6 +242,10 @@ export function createNotesController({ tr = (value) => value } = {}) {
     grouped.forEach((items) => { const first = items[0]; lines.push(`## [${first.videoTitle || "Vídeo de YouTube"}](${first.videoUrl})`, ""); items.sort((a, b) => a.startMs - b.startMs).forEach((item) => { lines.push(`- [${formatTime(item.startMs)}](${noteLink(item)}) — ${item.text || "Momento guardado"}`); if (item.note) lines.push(`  - Nota: ${item.note}`); }); lines.push(""); });
     const url = URL.createObjectURL(new Blob([lines.join("\n")], { type:"text/markdown;charset=utf-8" })); const link = document.createElement("a"); link.href = url; link.download = "notas-youtube.md"; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
+  deleteAllButton.onclick = async () => {
+    if (!(await confirmDeletion("Eliminar todo", "¿Quieres borrar todas las notas y vídeos guardados en Chrome? Esta acción no se puede deshacer."))) return;
+    chrome.storage.local.set({ [NOTES_KEY]: [], [RECORDS_KEY]: {} }, load);
+  };
   chrome.storage.onChanged.addListener((changes, area) => { if (area === "local" && (changes[NOTES_KEY] || changes[RECORDS_KEY] || changes[SETTINGS_KEY]) && !section.hidden) load(); });
   return { isOpen:() => !section.hidden, load, syncWidth };
 }

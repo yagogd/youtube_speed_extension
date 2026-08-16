@@ -2,9 +2,12 @@ import { getStored, setStored } from "./storage.js";
 
 const KEY = "ytxObsidianSettings";
 const DEFAULT_NOTE_TEMPLATE = "{{frontmatter}}\n\n{{general_note}}\n\n{{timestamp_notes}}";
+const DEFAULT_GENERAL_NOTE_TEMPLATE = "## Nota general\n\n{{content}}";
+const DEFAULT_TIMESTAMP_NOTE_TEMPLATE = "### [{{time}}]({{url}})\n{{tags}}\n*{{text}}*\n\n{{note}}";
 const DEFAULTS = {
   enabled:false, apiUrl:"http://127.0.0.1:27123", apiToken:"", defaultFolder:"YouTube/Inbox",
   fileNameTemplate:"{video_title}", noteTemplate:DEFAULT_NOTE_TEMPLATE, saveBehavior:"auto",
+  generalNoteTemplate:DEFAULT_GENERAL_NOTE_TEMPLATE, timestampNoteTemplate:DEFAULT_TIMESTAMP_NOTE_TEMPLATE,
   includeMetadata:true, includeSource:true, includeVideoId:true, includeChannel:true, includeUrl:true,
   includeNoteCreatedDate:true, includeVideoPublishedDate:true, includeGeneralNote:true, includeTimestampNotes:true, includeTags:true,
   contentSettingsVersion:2, contentOrderVersion:3, contentOrder:["source", "videoId", "channel", "url", "noteCreatedDate", "videoPublishedDate", "tags", "generalNote", "timestampNotes"], fileNamePresets:[], noteTemplatePresets:[],
@@ -50,6 +53,17 @@ function makeEditor(title, copy) {
   heading.append(strong, text);
   section.appendChild(heading);
   return section;
+}
+
+function makeTemplateField(id, labelText, rows) {
+  const label = document.createElement("label");
+  label.className = "field";
+  label.appendChild(document.createTextNode(labelText));
+  const textarea = document.createElement("textarea");
+  textarea.id = id;
+  textarea.rows = rows;
+  label.appendChild(textarea);
+  return { label, textarea };
 }
 
 function createPresetManager({ field, storageKey, builtins, status, title }) {
@@ -331,6 +345,20 @@ export async function initObsidianSettings() {
     });
   });
 
+  const quickEnabled = document.getElementById("quick-obsidian-enabled");
+  if (quickEnabled) {
+    const obsidianEnabled = document.getElementById("obsidian-enabled");
+    const syncQuick = () => { quickEnabled.checked = Boolean(obsidianEnabled?.checked); };
+    syncQuick();
+    quickEnabled.addEventListener("change", async () => {
+      const current = await readSettings();
+      current.enabled = quickEnabled.checked;
+      await writeSettings(current);
+      if (obsidianEnabled) obsidianEnabled.checked = quickEnabled.checked;
+    });
+    obsidianEnabled?.addEventListener("change", syncQuick);
+  }
+
   const fileField = document.getElementById("obsidian-file-name-template");
   const noteField = document.getElementById("obsidian-note-template");
   const fileManager = createPresetManager({ field:fileField, storageKey:"fileNamePresets", builtins:BUILTIN_NAMES, status, title:"Formatos guardados" });
@@ -345,6 +373,27 @@ export async function initObsidianSettings() {
     { token:"{{url}}", label:"URL" }, { token:"{{channel}}", label:"Canal" },
     { token:"{{tags}}", label:"Tags" }, { token:"{{video_id}}", label:"ID" },
   ], "Escribe Markdown normal y pulsa una pieza para insertarla donde esté el cursor.");
+
+  const generalNoteField = makeTemplateField("obsidian-general-note-template", "Plantilla del bloque de nota general", 4);
+  const timestampNoteField = makeTemplateField("obsidian-timestamp-note-template", "Plantilla de cada nota con timestamp", 7);
+  const bindTemplateField = (field, key) => {
+    field.value = stored[key] ?? "";
+    field.addEventListener("change", async () => {
+      const current = await readSettings();
+      current[key] = field.value;
+      await writeSettings(current);
+      status.textContent = "Configuración guardada";
+    });
+  };
+  bindTemplateField(generalNoteField.textarea, "generalNoteTemplate");
+  bindTemplateField(timestampNoteField.textarea, "timestampNoteTemplate");
+  const generalNoteVariables = createVariableHelper(generalNoteField.textarea, [
+    { token:"{{content}}", label:"Contenido" },
+  ], "Escribe el bloque de la nota general. Pulsa la pieza para insertarla donde esté el cursor.");
+  const timestampNoteVariables = createVariableHelper(timestampNoteField.textarea, [
+    { token:"{{time}}", label:"Minuto" }, { token:"{{url}}", label:"Enlace" },
+    { token:"{{tags}}", label:"Tags" }, { token:"{{text}}", label:"Texto" }, { token:"{{note}}", label:"Nota" },
+  ], "Compón el formato de cada momento guardado. Envuelve las piezas en Markdown: [{{time}}]({{url}}), *{{text}}*, #{{tags}}…");
 
   const body = document.querySelector(".obsidian-settings");
   const connection = makeGroup("Conexión", "Acceso local y cola offline");
@@ -379,7 +428,11 @@ export async function initObsidianSettings() {
   fileEditor.append(fileLabel, fileDatalist, fileVariables, fileCopy, fileManager);
   const noteEditor = makeEditor("2. Plantilla Markdown", "Define qué aspecto tendrá el contenido de la nota.");
   noteEditor.append(noteLabel, noteVariables, noteCopy, noteManager);
-  templates.append(fileEditor, noteEditor);
+  const generalNoteEditor = makeEditor("3. Nota general", "Formato del bloque de resumen o conclusiones.");
+  generalNoteEditor.append(generalNoteField.label, generalNoteVariables);
+  const timestampNoteEditor = makeEditor("4. Notas con timestamp", "Formato de cada momento guardado del vídeo.");
+  timestampNoteEditor.append(timestampNoteField.label, timestampNoteVariables);
+  templates.append(fileEditor, noteEditor, generalNoteEditor, timestampNoteEditor);
   content.append(createContentOrganizer(options, status));
   body.replaceChildren(connection, destination, templates, content);
 

@@ -52,6 +52,10 @@
 .notes-folder[open] > summary::before,.notes-video[open] > summary::before { transform:rotate(90deg); }
 .notes-folder__name,.notes-video__title { grid-column:1; grid-row:1; min-width:0; padding-left:17px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .notes-tree-count { grid-column:2; grid-row:1; display:grid; place-items:center; min-width:24px; height:22px; padding:0 6px; border-radius:999px; color:var(--muted); background:rgba(127,137,153,.14); font-size:9.5px; }
+.notes-video > summary { grid-template-columns:minmax(0,1fr) auto auto; }
+.notes-video__remove { grid-column:3; grid-row:1; width:auto; margin:0; padding:3px 8px; border:0; border-radius:7px; color:#ffaaa5; background:rgba(255,120,120,.12); font-size:10px; cursor:pointer; }
+.notes-video__remove:hover { color:#ffd1ce; background:rgba(255,120,120,.24); }
+.notes-video__remove:focus-visible { outline:2px solid #5db5ff; outline-offset:1px; }
 .notes-folder__children { display:grid; gap:7px; margin:7px 0 2px 13px; padding-left:9px; border-left:1px solid rgba(127,137,153,.2); }
 .notes-video { border:1px solid var(--border); border-radius:10px; background:rgba(0,0,0,.08); }
 .notes-video > summary { padding:8px 9px; font-size:11px; }

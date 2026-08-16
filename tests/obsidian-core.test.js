@@ -56,6 +56,24 @@ test("incluye tags específicos dentro de cada nota timestamp", () => {
   assert.match(markdown, /### \[7:32\]\([^)]*\)\n#concepto #repasar\n\*Ejemplo\*/);
 });
 
+test("personaliza el bloque de nota general", () => {
+  const markdown = core.renderMarkdown(record, { ...core.DEFAULT_SETTINGS, generalNoteTemplate:"## Resumen\n\n{{content}}" });
+  assert.match(markdown, /## Resumen\n\nRelacionar con \[\[Backpropagation\]\]\./);
+  assert.doesNotMatch(markdown, /## Nota general/);
+});
+
+test("personaliza el formato de cada nota timestamp", () => {
+  const markdown = core.renderMarkdown(record, { ...core.DEFAULT_SETTINGS, timestampNoteTemplate:"- {{time}} — {{note}}" });
+  assert.match(markdown, /- 2:41 — Función parametrizada\./);
+  assert.match(markdown, /- 7:32 — Buen ejemplo de \[\[Gradient Descent\]\]\./);
+});
+
+test("omite las líneas vacías de variables sin contenido", () => {
+  const markdown = core.renderMarkdown({ ...record, timestampNotes:[{ startMs:30000, text:"Frase", note:"", tags:[] }] }, core.DEFAULT_SETTINGS);
+  assert.match(markdown, /### \[0:30\]\([^)]*\)\n\*Frase\*/);
+  assert.doesNotMatch(markdown, /\*\*/);
+});
+
 test("mantiene el frontmatter primero y respeta el orden del resto", () => {
   const markdown = core.renderMarkdown(record, { ...core.DEFAULT_SETTINGS, contentOrder:["timestampNotes", "generalNote", "metadata"] });
   assert.equal(markdown.indexOf("---"), 0);

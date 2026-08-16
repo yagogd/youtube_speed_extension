@@ -5,7 +5,7 @@
   const STORAGE_KEY = "ytxSavedNotes";
   const RECORDS_KEY = "ytxVideoRecords";
   const SETTINGS_KEY = "ytxObsidianSettings";
-  const EXPORT_SETTING_KEYS = ["defaultFolder", "fileNameTemplate", "noteTemplate", "includeSource", "includeVideoId", "includeChannel", "includeUrl", "includeNoteCreatedDate", "includeVideoPublishedDate", "includeGeneralNote", "includeTimestampNotes", "includeTags", "contentOrder"];
+  const EXPORT_SETTING_KEYS = ["defaultFolder", "fileNameTemplate", "noteTemplate", "generalNoteTemplate", "timestampNoteTemplate", "includeSource", "includeVideoId", "includeChannel", "includeUrl", "includeNoteCreatedDate", "includeVideoPublishedDate", "includeGeneralNote", "includeTimestampNotes", "includeTags", "contentOrder"];
   let editorDraft = null;
   let editorReturnFocus = null;
   let autoSyncTimer = 0;

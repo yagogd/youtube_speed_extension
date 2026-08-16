@@ -12,6 +12,8 @@
     defaultFolder: "YouTube/Inbox",
     fileNameTemplate: "{video_title}",
     noteTemplate: "{{frontmatter}}\n\n{{general_note}}\n\n{{timestamp_notes}}",
+    generalNoteTemplate: "## Nota general\n\n{{content}}",
+    timestampNoteTemplate: "### [{{time}}]({{url}})\n{{tags}}\n*{{text}}*\n\n{{note}}",
     saveBehavior: "auto",
     includeMetadata: true,
     includeSource: true,
@@ -90,16 +92,40 @@
     return [destination, `${renderFileName(record, settings)}.md`].filter(Boolean).join("/");
   }
 
-  function timestampNotes(record, settings) {
+  function renderTemplate(template, values) {
+    return String(template || "")
+      .split("\n")
+      .map((line) => {
+        let dynamic = false;
+        const substituted = line.replace(/\{\{([a-z_]+)\}\}/g, (match, key) => {
+          dynamic = true;
+          return key in values ? String(values[key] ?? "") : match;
+        }).trim();
+        if (dynamic && (!substituted || /^[*_~`#>+\-]+$/.test(substituted))) return null;
+        return substituted;
+      })
+      .filter((line) => line !== null)
+      .reduce((acc, line) => {
+        if (line === "" && acc[acc.length - 1] === "") return acc;
+        acc.push(line);
+        return acc;
+      }, [])
+      .join("\n")
+      .trim();
+  }
+
+  function renderTimestampNotes(record, settings) {
+    const template = settings.timestampNoteTemplate || DEFAULT_SETTINGS.timestampNoteTemplate;
     return (record.timestampNotes || []).slice().sort((a, b) => a.startMs - b.startMs).map((note) => {
-      const transcriptText = note.text ? `*${String(note.text).trim()}*` : "";
-      const body = [transcriptText, note.note].filter(Boolean).join("\n\n") || "Saved moment";
-      const noteTags = normalizeTags(note.tags);
-      const tagLine = noteTags.length ? noteTags.map((tag) => `#${tag}`).join(" ") : "";
-      const timeLabel = formatTime(note.startMs);
-      const heading = `### [${timeLabel}](${record.videoUrl})`;
-      return [heading, tagLine, body].filter(Boolean).join("\n");
-    }).join("\n\n");
+      const tags = normalizeTags(note.tags);
+      return renderTemplate(template, {
+        time: formatTime(note.startMs),
+        url: record.videoUrl || "",
+        text: String(note.text || "").trim(),
+        note: String(note.note || "").trim(),
+        tags: tags.map((tag) => `#${tag}`).join(" "),
+      });
+    }).filter(Boolean).join("\n\n");
   }
 
   function renderMarkdown(record, suppliedSettings = {}) {
@@ -121,8 +147,8 @@
     const values = {
       frontmatter,
       title: record.videoTitle || "YouTube video",
-      general_note: settings.includeGeneralNote ? `## Nota general\n\n${record.generalNote || ""}`.trimEnd() : "",
-      timestamp_notes: settings.includeTimestampNotes ? `## Notas\n\n${timestampNotes(record, settings)}`.trimEnd() : "",
+      general_note: settings.includeGeneralNote ? renderTemplate(settings.generalNoteTemplate, { content: String(record.generalNote || "") }) : "",
+      timestamp_notes: settings.includeTimestampNotes ? `## Notas\n\n${renderTimestampNotes(record, settings)}`.trimEnd() : "",
       url: record.videoUrl || "",
       channel: record.channel || "",
       video_id: record.videoId || "",
