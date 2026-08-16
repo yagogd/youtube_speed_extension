@@ -1,11 +1,28 @@
 "use strict";
 
 import { languageCatalog, normalizeLanguageSearch } from "./languages.js";
+import { createSettingsGroup } from "./settings-groups.js";
 
 export function initTranscriptSettings() {
     const enabled = document.getElementById("transcript-enabled");
     const mode = document.getElementById("transcript-mode");
     const grouping = document.getElementById("transcript-grouping");
+    const displayLeadLabel = document.createElement("label");
+    displayLeadLabel.className = "field";
+    displayLeadLabel.htmlFor = "transcript-display-lead-ms";
+    displayLeadLabel.append(document.createTextNode("Desfase de los subtítulos (ms)"));
+    const displayLead = document.createElement("input");
+    displayLead.id = "transcript-display-lead-ms";
+    displayLead.type = "number";
+    displayLead.min = "-10000";
+    displayLead.max = "10000";
+    displayLead.step = "100";
+    displayLead.inputMode = "numeric";
+    displayLeadLabel.appendChild(displayLead);
+    const displayLeadHelp = document.createElement("p");
+    displayLeadHelp.className = "section-copy";
+    displayLeadHelp.textContent = "Positivo: el texto aparece antes. Negativo: aparece después. 1100 = 1,1 s antes; -1000 = 1 s después.";
+    grouping.closest("label").after(displayLeadLabel, displayLeadHelp);
     const preferredLanguage = document.getElementById("transcript-preferred-language");
     const favoriteLanguages = document.getElementById("transcript-favorite-languages");
     const favoriteLanguageAddRow = document.createElement("div");
@@ -23,6 +40,21 @@ export function initTranscriptSettings() {
     favoriteLanguageMenu.hidden = true;
     favoriteLanguageAddRow.append(favoriteLanguageInput, favoriteLanguageAdd, favoriteLanguageMenu);
     favoriteLanguages.after(favoriteLanguageAddRow);
+    const transcriptBody = enabled.closest(".settings-body");
+    const languageGroup = createSettingsGroup(
+      "Idioma y pistas",
+      "Elige qué subtítulos se priorizan y cuáles aparecen destacados."
+    );
+    const timingGroup = createSettingsGroup(
+      "Ritmo y estructura",
+      "Decide cuándo aparece el texto y cómo se divide."
+    );
+    const preferredLanguageLabel = preferredLanguage.closest("label");
+    const preferredLanguageHelp = preferredLanguageLabel.nextElementSibling;
+    const favoriteLanguagesFieldset = favoriteLanguages.closest("fieldset");
+    languageGroup.append(preferredLanguageLabel, preferredLanguageHelp, favoriteLanguagesFieldset);
+    timingGroup.append(mode.closest("label"), grouping.closest("label"), displayLeadLabel, displayLeadHelp);
+    transcriptBody.append(languageGroup, timingGroup);
     const autoOpenNext = document.getElementById("transcript-auto-open-next");
     const quickEnabled = document.getElementById("quick-transcript-enabled");
     const quickMode = document.getElementById("quick-transcript-mode");
@@ -36,6 +68,7 @@ export function initTranscriptSettings() {
       transcriptFavoriteLanguages: ["es", "en"],
       transcriptFavoriteLanguageChoices: null,
       transcriptAutoOpenNextVideo: true,
+      transcriptDisplayLeadMs: 1100,
     }, (stored) => {
       if (stored.transcriptGrouping === "grouped") {
         stored.transcriptGrouping = "sentences";
@@ -46,6 +79,7 @@ export function initTranscriptSettings() {
       mode.value = stored.transcriptMode;
       quickMode.value = stored.transcriptMode;
       grouping.value = stored.transcriptGrouping;
+      displayLead.value = String(Math.min(10000, Math.max(-10000, Number(stored.transcriptDisplayLeadMs) || 0)));
       quickGrouping.value = stored.transcriptGrouping;
       preferredLanguage.value = stored.transcriptPreferredLanguage;
       let selectedFavorites = Array.isArray(stored.transcriptFavoriteLanguages)
@@ -162,6 +196,11 @@ export function initTranscriptSettings() {
     grouping.addEventListener("change", () => {
       quickGrouping.value = grouping.value;
       chrome.storage.local.set({ transcriptGrouping: grouping.value });
+    });
+    displayLead.addEventListener("change", () => {
+      const value = Math.round(Math.min(10000, Math.max(-10000, Number(displayLead.value) || 0)));
+      displayLead.value = String(value);
+      chrome.storage.local.set({ transcriptDisplayLeadMs:value });
     });
     preferredLanguage.addEventListener("change", () => {
       chrome.storage.local.set({ transcriptPreferredLanguage: preferredLanguage.value });

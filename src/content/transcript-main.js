@@ -23,6 +23,7 @@
     const relevant = changes.extensionEnabled || changes.transcriptEnabled || changes.transcriptMode ||
       changes.transcriptGrouping || changes.transcriptPreferredLanguage || changes.transcriptAutoOpenNextVideo ||
       changes.transcriptFavoriteLanguages ||
+      changes.transcriptDisplayLeadMs ||
       changes.transcriptRememberLayout ||
       changes.transcriptPanelBackground || changes.transcriptPanelTextColor || changes.transcriptPanelFont ||
       changes.transcriptPanelFontSize || changes.transcriptPanelOpacity;
@@ -56,6 +57,7 @@
     }
     if (changes.transcriptAutoOpenNextVideo) state.settings.autoOpenNextVideo = changes.transcriptAutoOpenNextVideo.newValue !== false;
     if (changes.transcriptRememberLayout) state.settings.rememberLayout = changes.transcriptRememberLayout.newValue !== false;
+    if (changes.transcriptDisplayLeadMs) state.settings.displayLeadMs = Math.min(10000, Math.max(-10000, Number(changes.transcriptDisplayLeadMs.newValue) || 0));
     if (changes.transcriptPanelBackground) state.appearance.background = changes.transcriptPanelBackground.newValue;
     if (changes.transcriptPanelTextColor) state.appearance.text = changes.transcriptPanelTextColor.newValue;
     if (changes.transcriptPanelFont) state.appearance.font = changes.transcriptPanelFont.newValue;
@@ -66,6 +68,11 @@
       changes.transcriptPanelFont || changes.transcriptPanelFontSize || changes.transcriptPanelOpacity;
     const functionalChanged = changes.extensionEnabled || changes.transcriptEnabled || changes.transcriptMode ||
       changes.transcriptGrouping || changes.transcriptPreferredLanguage || changes.transcriptAutoOpenNextVideo;
+    const timingChanged = Boolean(changes.transcriptDisplayLeadMs);
+    if (timingChanged && !appearanceChanged && !functionalChanged && !changes.transcriptFavoriteLanguages) {
+      ytx.sync.updateActiveBlock();
+      return;
+    }
     if (changes.transcriptFavoriteLanguages && !appearanceChanged && !functionalChanged) return;
     if (appearanceChanged && !functionalChanged) {
       ytx.panel.applyAppearance?.();
@@ -99,6 +106,7 @@
         transcriptPanelFont: "Inter, Roboto, Arial, sans-serif",
         transcriptPanelFontSize: 13.5,
         transcriptPanelOpacity: 0.84,
+        transcriptDisplayLeadMs: 1100,
       }, (stored) => {
         state.settings.enabled = stored.transcriptEnabled;
         state.settings.extensionEnabled = stored.extensionEnabled;
@@ -109,6 +117,7 @@
           ? stored.transcriptFavoriteLanguages : ["es", "en"];
         state.settings.autoOpenNextVideo = stored.transcriptAutoOpenNextVideo;
         state.settings.rememberLayout = stored.transcriptRememberLayout !== false;
+        state.settings.displayLeadMs = Math.min(10000, Math.max(-10000, Number(stored.transcriptDisplayLeadMs) || 0));
         state.appearance = {
           background: stored.transcriptPanelBackground,
           text: stored.transcriptPanelTextColor,

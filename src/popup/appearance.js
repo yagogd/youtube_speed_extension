@@ -1,6 +1,7 @@
 "use strict";
 
 import { getStored, removeStored, setStored } from "./storage.js";
+import { createSettingsGroup } from "./settings-groups.js";
 
 const PANEL_DEFAULTS = {
   transcriptPanelBackground: "#1e1e22",
@@ -24,6 +25,23 @@ export async function initAppearance({ onExtensionStateChange }) {
   const rememberPlaybackSpeed = document.getElementById("remember-playback-speed");
   const rememberPanelLayout = document.getElementById("remember-panel-layout");
   let extensionEnabled = true;
+
+  const panelCard = panelBackground.closest("details.card");
+  const transcriptSettingsBody = document.getElementById("transcript-enabled").closest(".settings-body");
+  const appearanceGroup = createSettingsGroup(
+    "Apariencia y disposición",
+    "Personaliza el aspecto del panel o recupera su posición y tamaño originales."
+  );
+  const appearanceRows = [
+    panelBackground.closest(".appearance-grid"),
+    panelFont.closest("label"),
+    panelFontSize.closest(".appearance-grid"),
+    document.getElementById("reset-panel-appearance"),
+  ];
+  const layoutCopy = document.getElementById("reset-panel-layout").previousElementSibling;
+  appearanceGroup.append(...appearanceRows, layoutCopy, document.getElementById("reset-panel-layout"), settingsStatus);
+  transcriptSettingsBody.appendChild(appearanceGroup);
+  panelCard.remove();
 
   function applyTheme(theme) {
     const light = theme === "light";

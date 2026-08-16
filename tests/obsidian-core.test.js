@@ -13,6 +13,13 @@ test("normaliza tags sin duplicados y conserva su contenido", () => {
   assert.deepEqual(core.normalizeTags(record.tags), ["machine-learning", "statistics"]);
 });
 
+test("solo considera apuntado un vídeo con contenido creado por el usuario", () => {
+  assert.equal(core.hasNoteContent({ generalNote:"", tags:[], timestampNotes:[], folder:"YouTube/Inbox" }), false);
+  assert.equal(core.hasNoteContent({ generalNote:"Resumen", tags:[], timestampNotes:[] }), true);
+  assert.equal(core.hasNoteContent({ generalNote:"", tags:["repasar"], timestampNotes:[] }), true);
+  assert.equal(core.hasNoteContent({ generalNote:"", tags:[], timestampNotes:[{ type:"favorite" }] }), true);
+});
+
 test("sanitiza únicamente caracteres incompatibles del nombre", () => {
   assert.equal(core.renderFileName(record, { fileNameTemplate: "{channel} - {video_title}" }), "3Blue1Brown - Neural Networks- A-B-");
 });

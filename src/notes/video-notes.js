@@ -5,6 +5,7 @@
   const STORAGE_KEY = "ytxSavedNotes";
   const RECORDS_KEY = "ytxVideoRecords";
   const SETTINGS_KEY = "ytxObsidianSettings";
+  const EXPORT_SETTING_KEYS = ["defaultFolder", "fileNameTemplate", "noteTemplate", "includeSource", "includeVideoId", "includeChannel", "includeUrl", "includeNoteCreatedDate", "includeVideoPublishedDate", "includeGeneralNote", "includeTimestampNotes", "includeTags", "includeTimestampLinks", "contentOrder"];
   let editorDraft = null;
   let editorReturnFocus = null;
   let autoSyncTimer = 0;
@@ -30,12 +31,20 @@
   function videoMetadata() {
     const id = videoId();
     const heading = document.querySelector("h1.ytd-watch-metadata yt-formatted-string, h1.title yt-formatted-string");
+    const directDate = document.querySelector('meta[itemprop="datePublished"], meta[itemprop="uploadDate"], meta[property="datePublished"], link[itemprop="uploadDate"]')?.getAttribute("content") || "";
+    let embeddedDate = "";
+    if (!directDate) {
+      for (const script of document.scripts) {
+        const match = script.textContent?.match(/"(?:publishDate|uploadDate|datePublished)"\s*:\s*"(\d{4}-\d{2}-\d{2})/);
+        if (match) { embeddedDate = match[1]; break; }
+      }
+    }
     return {
       videoId: id,
       videoTitle: heading?.textContent?.trim() || document.title.replace(/\s*-\s*YouTube\s*$/, ""),
       videoUrl: `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`,
       channel: document.querySelector("#owner #channel-name a, ytd-video-owner-renderer #channel-name a")?.textContent?.trim() || "",
-      videoPublishedAt: document.querySelector('meta[itemprop="datePublished"], meta[itemprop="uploadDate"]')?.getAttribute("content") || "",
+      videoPublishedAt: directDate || embeddedDate,
     };
   }
 
@@ -59,17 +68,21 @@
     const stored = await readStorage({ [RECORDS_KEY]: {}, [SETTINGS_KEY]: {} });
     const records = stored[RECORDS_KEY] || {};
     const previous = records[metadata.videoId] || {};
+    const settings = { ...YTXObsidianCore.DEFAULT_SETTINGS, ...(stored[SETTINGS_KEY] || {}) };
     const record = {
       generalNote: "", tags: [], folder: "", createdAt: new Date().toISOString(), obsidian: { status: "never", path: "", fingerprint: "", error: "" },
       ...previous, ...metadata, ...patch,
       videoPublishedAt: metadata.videoPublishedAt || previous.videoPublishedAt || "",
       timestampNotes: state.savedNotes.slice(),
     };
+    if (YTXObsidianCore.hasNoteContent(record) && !record.obsidian?.exportSettings) {
+      record.obsidian = { ...record.obsidian, exportSettings:Object.fromEntries(EXPORT_SETTING_KEYS.map((key) => [key, Array.isArray(settings[key]) ? settings[key].slice() : settings[key]])) };
+    }
     if (Object.prototype.hasOwnProperty.call(patch, "folder") && previous.folder !== record.folder && previous.obsidian?.path) {
       record.obsidian = { ...record.obsidian, status:"pending", path:"", relocateFrom:previous.obsidian.path };
     }
-    const settings = { ...YTXObsidianCore.DEFAULT_SETTINGS, ...(stored[SETTINGS_KEY] || {}) };
-    const fingerprint = YTXObsidianCore.contentFingerprint(record, settings);
+    const renderSettings = { ...settings, ...(record.obsidian?.exportSettings || {}) };
+    const fingerprint = YTXObsidianCore.contentFingerprint(record, renderSettings);
     if (record.obsidian?.fingerprint && record.obsidian.fingerprint !== fingerprint) record.obsidian = { ...record.obsidian, status: "pending" };
     records[metadata.videoId] = record;
     await chrome.storage.local.set({ [RECORDS_KEY]: records });

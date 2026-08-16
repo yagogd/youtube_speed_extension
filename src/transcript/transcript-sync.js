@@ -29,7 +29,7 @@
     const video = document.querySelector("video");
     if (!blocks?.length || !ui || !video) return;
 
-    const currentMs = video.currentTime * 1000 + (ytx.CAPTION_DISPLAY_LEAD_MS || 0);
+    const currentMs = video.currentTime * 1000 + (Number(state.settings.displayLeadMs) || 0);
     let nextIndex = -1;
     for (let index = blocks.length - 1; index >= 0; index -= 1) {
       const block = blocks[index];

@@ -3,6 +3,24 @@
   if (globalThis.YTXI18n) return;
 
   const EN = {
+    "Apariencia y disposición": "Appearance and layout",
+    "Personaliza el aspecto del panel o recupera su posición y tamaño originales.": "Customize the panel or restore its original position and size.",
+    "HTTP local evita problemas con certificados. También puedes usar HTTPS si tu navegador confía en el certificado.": "Local HTTP avoids certificate issues. You can also use HTTPS if your browser trusts the certificate.",
+    "Tu navegador reintenta la sincronización cada minuto y al arrancar; cuando vuelve la conexión, actualiza todos los vídeos pendientes.": "Your browser retries syncing every minute and on startup; when the connection returns, it updates all pending videos.",
+    "Selecciona una opción incluida o una que hayas guardado.": "Select an included option or one you have saved.",
+    "Incluida · Nota sencilla": "Included · Simple note",
+    "Incluida · Notas de estudio": "Included · Study notes",
+    "Nota sencilla": "Simple note", "Notas de estudio": "Study notes",
+    "Formato aplicado y guardado": "Format applied and saved",
+    "Formato eliminado": "Format deleted",
+    "Idioma y pistas": "Language and tracks",
+    "Elige qué subtítulos se priorizan y cuáles aparecen destacados.": "Choose which captions are prioritized and which ones are pinned.",
+    "Ritmo y estructura": "Timing and structure",
+    "Decide cuándo aparece el texto y cómo se divide.": "Choose when text appears and how it is split.",
+    "Apariencia": "Appearance",
+    "Personaliza los colores, la tipografía y la transparencia.": "Customize colors, typography, and transparency.",
+    "Disposición": "Layout",
+    "Gestiona la posición y el tamaño guardados del panel.": "Manage the panel's saved position and size.",
     "Control rápido": "Quick controls", "Extensión apagada": "Extension off",
     "Velocidad": "Speed", "Aplicar": "Apply", "Transcripción": "Transcript",
     "Panel con los subtítulos del vídeo": "Panel with the video's captions",
@@ -91,7 +109,65 @@
     "No puedes asignar una velocidad superior a 16×.": "You cannot assign a speed above 16×.",
     "Asigna una tecla e introduce una velocidad válida.": "Assign a key and enter a valid speed.", "Asigna una tecla.": "Assign a key.",
     "¿Quieres eliminar esta nota? Esta acción no se puede deshacer.": "Do you want to delete this note? This action cannot be undone.",
-    "Confirmar eliminación": "Confirm deletion", "Eliminar nota": "Delete note"
+    "Confirmar eliminación": "Confirm deletion", "Eliminar nota": "Delete note",
+    "Desfase de los subtítulos (ms)": "Caption timing offset (ms)",
+    "Positivo: el texto aparece antes. Negativo: aparece después. 1100 = 1,1 s antes; -1000 = 1 s después.": "Positive values show text earlier. Negative values show it later. 1100 = 1.1 s earlier; -1000 = 1 s later.",
+    "Organizada por carpetas, vídeos y momentos.": "Organized by folders, videos, and moments.",
+    "Buscar vídeo, carpeta, tag o nota…": "Search video, folder, tag, or note…",
+    "No hay resultados.": "No results found.", "Nota general": "General note",
+    "Doble clic para añadir una nota general…": "Double-click to add a general note…",
+    "Doble clic para editar la nota general": "Double-click to edit the general note",
+    "Doble clic para editar la nota": "Double-click to edit the note",
+    "Conexión": "Connection", "Acceso local y cola offline": "Local access and offline queue",
+    "Destino": "Destination", "Dónde se guardan las notas por defecto": "Where notes are saved by default",
+    "Formato": "Format", "Nombres y contenido completamente personalizables": "Fully customizable names and content",
+    "Elige qué información exportar": "Choose which information to export",
+    "Integración con Obsidian": "Obsidian integration",
+    "Guarda localmente y sincroniza cuando Obsidian está disponible.": "Save locally and sync when Obsidian is available.",
+    "URL de Local REST API": "Local REST API URL", "API token": "API token",
+    "Probar conexión": "Test connection", "Sincronizar pendientes ahora": "Sync pending notes now",
+    "Carpeta predeterminada dentro del vault": "Default folder inside the vault",
+    "Escribe la ruta desde la raíz del vault y separa cada nivel con /. Ejemplo: YouTube/Inbox. La carpeta elegida para un vídeo concreto tendrá prioridad.": "Enter the path from the vault root and separate each level with /. Example: YouTube/Inbox. A folder selected for a specific video takes priority.",
+    "1. Nombre del archivo": "1. File name", "Define cómo se llamará el archivo .md dentro de Obsidian.": "Define the name of the .md file inside Obsidian.",
+    "2. Plantilla Markdown": "2. Markdown template", "Define qué aspecto tendrá el contenido de la nota.": "Define what the note content will look like.",
+    "Nombre de archivo": "File name", "Plantilla Markdown": "Markdown template",
+    "Puedes combinar texto con título, canal, ID, fecha de creación de la nota o fecha de publicación del vídeo.": "You can combine text with the title, channel, ID, note creation date, or video publication date.",
+    "Construye el nombre pulsando las piezas que necesites. Puedes escribir texto entre ellas.": "Build the name by clicking the pieces you need. You can type text between them.",
+    "Escribe Markdown normal y pulsa una pieza para insertarla donde esté el cursor.": "Write regular Markdown and click a piece to insert it at the cursor.",
+    "Formatos guardados": "Saved formats", "Plantillas guardadas": "Saved templates",
+    "Selecciona uno de tus formatos guardados o una base incluida.": "Select one of your saved formats or an included base.",
+    "Usar": "Use", "Renombrar": "Rename", "Guardar como nuevo": "Save as new", "Guardar copia": "Save copy", "Cambiar nombre": "Rename", "Guardar nombre": "Save name",
+    "Nombre del nuevo formato": "New format name", "Nombre del nuevo preset": "New preset name",
+    "Título": "Title", "Fecha nota": "Note date", "Fecha vídeo": "Video date", "Metadata": "Metadata", "Notas": "Notes",
+    "Activa los bloques y arrástralos para decidir el orden de la nota.": "Enable blocks and drag them to set the note order.",
+    "Fuente": "Source", "Identifica la nota como YouTube": "Identifies the note as YouTube",
+    "ID del vídeo": "Video ID", "Identificador único de YouTube": "Unique YouTube identifier",
+    "Canal": "Channel", "Nombre del creador": "Creator name", "URL del vídeo": "Video URL", "Enlace al vídeo original": "Link to the original video",
+    "Creación de la nota": "Note creation", "Día en que empezaste a tomar notas": "The day you started taking notes",
+    "Publicación del vídeo": "Video publication", "Fecha publicada por YouTube": "Date published by YouTube",
+    "Resumen o conclusiones": "Summary or conclusions", "Notas timestamp": "Timestamp notes", "Momentos guardados del vídeo": "Saved moments from the video",
+    "Tags": "Tags", "Se exportan en el frontmatter": "Exported in the frontmatter", "Enlaces a YouTube": "YouTube links", "Se incluyen dentro de cada timestamp": "Included in each timestamp",
+    "Arrastrar para ordenar": "Drag to reorder", "Subir": "Move up", "Bajar": "Move down",
+    "Configuración guardada": "Settings saved", "Orden de contenido guardado": "Content order saved",
+    "Comprobando conexión…": "Testing connection…", "Conexión correcta": "Connection successful", "No se pudo conectar": "Could not connect",
+    "Sincronizando notas pendientes…": "Syncing pending notes…", "Preset aplicado y guardado": "Preset applied and saved", "Preset eliminado": "Preset deleted",
+    "Escribe un nombre y un contenido antes de guardar": "Enter a name and content before saving",
+    "Ej.: Mis notas de estudio": "E.g. My study notes",
+    "Sincronización y organización": "Sync and organization", "Abrir vídeo ↗": "Open video ↗",
+    "Canal y título": "Channel and title", "Fecha y título": "Date and title", "ID y título": "ID and title",
+    "Metadata del vídeo": "Video metadata", "Fecha de creación de la nota": "Note creation date", "Fecha de publicación del vídeo": "Video publication date",
+    "Puede incluir subcarpetas. La carpeta elegida para un vídeo concreto sustituye esta ruta.": "It can include subfolders. The folder selected for a specific video replaces this path.",
+    "Variables: {video_title}, {channel}, {date}, {video_id}. Puedes combinar texto y variables.": "Variables: {video_title}, {channel}, {date}, {video_id}. You can combine text and variables.",
+    "Variables: {{frontmatter}}, {{title}}, {{general_note}}, {{timestamp_notes}}, {{url}}, {{channel}}, {{video_id}} y {{tags}}.": "Variables: {{frontmatter}}, {{title}}, {{general_note}}, {{timestamp_notes}}, {{url}}, {{channel}}, {{video_id}}, and {{tags}}.",
+    "Editar nota general y organización": "Edit general note and organization", "Nota del vídeo": "Video note",
+    "Cerrar nota general": "Close general note", "NOTA GENERAL": "GENERAL NOTE", "Resumen, conclusiones e ideas generales…": "Summary, conclusions, and general ideas…",
+    "ORGANIZACIÓN": "ORGANIZATION", "CARPETA": "FOLDER", "Buscar o crear carpeta…": "Search or create folder…",
+    "Se usará la carpeta predeterminada": "The default folder will be used", "TAGS": "TAGS", "Buscar o crear tag…": "Search or create tag…",
+    "Tags de esta nota (separados por comas)": "Tags for this note (comma-separated)", "Buscar o crear tag de Obsidian": "Search or create an Obsidian tag",
+    "Carpeta de Obsidian": "Obsidian folder", "No hay elementos disponibles.": "No items available.",
+    "Enter para guardar · Shift + Enter para una nueva línea": "Enter to save · Shift + Enter for a new line",
+    "Nota general guardada": "General note saved", "Obsidian: no configurado": "Obsidian: not configured", "Obsidian: listo": "Obsidian: ready",
+    "Obsidian: cambios sin guardar": "Obsidian: unsaved changes", "Obsidian: sincronizado": "Obsidian: synced"
   };
   const ES = Object.fromEntries(Object.entries(EN).map(([es, en]) => [en, es]));
   const originalText = new WeakMap();
@@ -113,6 +189,27 @@
       if (match) return `${match[1]}s by speed`;
       match = value.match(/^(Favorito|Nota) · (.+)$/);
       if (match) return `${match[1] === "Favorito" ? "Favorite" : "Note"} · ${match[2]}`;
+      match = value.match(/^(\d+) vídeos · (\d+) notas$/);
+      if (match) return `${match[1]} videos · ${match[2]} notes`;
+      match = value.match(/^(\d+) sincronizadas; (\d+) pendientes$/);
+      if (match) return `${match[1]} synced; ${match[2]} pending`;
+      match = value.match(/^(Base|Mío|Incluida|Personal) · (.+)$/);
+      if (match) {
+        const included = match[1] === "Base" || match[1] === "Incluida";
+        return `${included ? "Included" : "Personal"} · ${included ? translateValue(match[2], "en") : match[2]}`;
+      }
+      match = value.match(/^Preset “(.+)” guardado$/);
+      if (match) return `Preset “${match[1]}” saved`;
+      match = value.match(/^Formato “(.+)” guardado$/);
+      if (match) return `Format “${match[1]}” saved`;
+      match = value.match(/^Insertar (.+)$/);
+      if (match) return `Insert ${match[1]}`;
+      match = value.match(/^Crear tag #(.+)$/);
+      if (match) return `Create tag #${match[1]}`;
+      match = value.match(/^Crear carpeta (.+)$/);
+      if (match) return `Create folder ${match[1]}`;
+      match = value.match(/^Carpeta configurada: (.+)$/);
+      if (match) return `Folder set: ${match[1]}`;
     }
     return value;
   }

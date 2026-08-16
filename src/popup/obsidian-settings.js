@@ -16,9 +16,8 @@ const BUILTIN_NAMES = [
   { name:"ID y título", value:"{video_id} - {video_title}" },
 ];
 const BUILTIN_NOTES = [
-  { name:"Limpia (sin título duplicado)", value:DEFAULT_NOTE_TEMPLATE },
-  { name:"Con encabezado", value:"{{frontmatter}}\n\n# {{title}}\n\n{{general_note}}\n\n{{timestamp_notes}}" },
-  { name:"Estudio", value:"{{frontmatter}}\n\n## Fuente\n\n[Ver vídeo]({{url}}) · {{channel}}\n\n{{general_note}}\n\n## Conceptos relacionados\n\n- \n\n{{timestamp_notes}}" },
+  { name:"Nota sencilla", value:DEFAULT_NOTE_TEMPLATE },
+  { name:"Notas de estudio", value:"{{frontmatter}}\n\n## Fuente\n\n[Ver vídeo]({{url}}) · {{channel}}\n\n{{general_note}}\n\n## Conceptos relacionados\n\n- \n\n{{timestamp_notes}}" },
 ];
 
 const cleanSettings = (value = {}) => Object.fromEntries(Object.keys(DEFAULTS).map((key) => [key, key in value ? value[key] : DEFAULTS[key]]));
@@ -26,9 +25,9 @@ const readSettings = async () => cleanSettings((await getStored({ [KEY]:{} }))[K
 const writeSettings = (settings) => new Promise((resolve) => setStored({ [KEY]:settings }, resolve));
 
 function makeGroup(title, copy) {
-  const section = document.createElement("section");
+  const section = document.createElement("details");
   section.className = "obsidian-settings-group";
-  const heading = document.createElement("div");
+  const heading = document.createElement("summary");
   heading.className = "obsidian-settings-group__heading";
   const strong = document.createElement("strong");
   strong.textContent = title;
@@ -40,9 +39,9 @@ function makeGroup(title, copy) {
 }
 
 function makeEditor(title, copy) {
-  const section = document.createElement("div");
+  const section = document.createElement("details");
   section.className = "obsidian-format-editor";
-  const heading = document.createElement("div");
+  const heading = document.createElement("summary");
   heading.className = "obsidian-format-editor__heading";
   const strong = document.createElement("strong");
   strong.textContent = title;
@@ -60,7 +59,7 @@ function createPresetManager({ field, storageKey, builtins, status, title }) {
   heading.textContent = title;
   const savedCopy = document.createElement("span");
   savedCopy.className = "obsidian-preset-manager__copy";
-  savedCopy.textContent = "Selecciona uno de tus formatos guardados o una base incluida.";
+  savedCopy.textContent = "Selecciona una opción incluida o una que hayas guardado.";
   const picker = document.createElement("div");
   picker.className = "obsidian-preset-manager__row";
   const select = document.createElement("select");
@@ -97,7 +96,7 @@ function createPresetManager({ field, storageKey, builtins, status, title }) {
     const custom = Array.isArray(settings[storageKey]) ? settings[storageKey] : [];
     select.replaceChildren();
     [...builtins.map((item) => ({ ...item, builtin:true })), ...custom].forEach((item) => {
-      const option = new Option(`${item.builtin ? "Base · " : "Mío · "}${item.name}`, item.name);
+      const option = new Option(`${item.builtin ? "Incluida · " : "Personal · "}${item.name}`, item.name);
       option.dataset.value = item.value;
       option.dataset.builtin = String(Boolean(item.builtin));
       select.add(option);
@@ -115,7 +114,7 @@ function createPresetManager({ field, storageKey, builtins, status, title }) {
   apply.addEventListener("click", () => {
     field.value = select.selectedOptions[0]?.dataset.value || "";
     field.dispatchEvent(new Event("change"));
-    status.textContent = "Preset aplicado y guardado";
+    status.textContent = "Formato aplicado y guardado";
   });
   save.addEventListener("click", async () => {
     const presetName = name.value.trim();
@@ -130,7 +129,7 @@ function createPresetManager({ field, storageKey, builtins, status, title }) {
     creatorHeading.textContent = "Guardar como nuevo";
     save.textContent = "Guardar copia";
     await render(presetName);
-    status.textContent = `Preset “${presetName}” guardado`;
+    status.textContent = `Formato “${presetName}” guardado`;
   });
   rename.addEventListener("click", () => {
     const option = select.selectedOptions[0];
@@ -149,7 +148,7 @@ function createPresetManager({ field, storageKey, builtins, status, title }) {
     settings[storageKey] = (settings[storageKey] || []).filter((item) => item.name !== option.value);
     await writeSettings(settings);
     await render();
-    status.textContent = "Preset eliminado";
+    status.textContent = "Formato eliminado";
   });
   render();
   return root;
@@ -233,16 +232,13 @@ function createContentOrganizer(options, status) {
       handle.className = "obsidian-content-item__handle";
       handle.textContent = "⠿";
       handle.title = "Arrastrar para ordenar";
-      const number = document.createElement("span");
-      number.className = "obsidian-content-item__number";
-      number.textContent = String(index + 1).padStart(2, "0");
       const copy = document.createElement("label");
       copy.className = "obsidian-content-item__copy";
       copy.htmlFor = item.input;
       copy.innerHTML = `<strong>${item.title}</strong><span>${item.copy}</span>`;
       const toggle = item.label;
       toggle.className = "obsidian-content-item__toggle";
-      row.append(handle, number, copy, toggle);
+      row.append(handle, copy, toggle);
       const controls = document.createElement("span");
       controls.className = "obsidian-content-item__controls";
       [["↑", -1, "Subir"], ["↓", 1, "Bajar"]].forEach(([text, offset, title]) => {
@@ -360,6 +356,7 @@ export async function initObsidianSettings() {
   const urlLabel = document.getElementById("obsidian-api-url").closest("label");
   const tokenLabel = document.getElementById("obsidian-api-token").closest("label");
   const urlCopy = tokenLabel.nextElementSibling;
+  urlCopy.textContent = "HTTP local evita problemas con certificados. También puedes usar HTTPS si tu navegador confía en el certificado.";
   const folderLabel = document.getElementById("obsidian-default-folder").closest("label");
   const folderCopy = folderLabel.nextElementSibling;
   folderCopy.textContent = "Escribe la ruta desde la raíz del vault y separa cada nivel con /. Ejemplo: YouTube/Inbox. La carpeta elegida para un vídeo concreto tendrá prioridad.";
@@ -373,6 +370,7 @@ export async function initObsidianSettings() {
   const test = document.getElementById("obsidian-test");
   const sync = document.getElementById("obsidian-sync-pending");
   const retryCopy = status.nextElementSibling;
+  retryCopy.textContent = "Tu navegador reintenta la sincronización cada minuto y al arrancar; cuando vuelve la conexión, actualiza todos los vídeos pendientes.";
   const credentials = document.createElement("div");
   credentials.className = "obsidian-credentials";
   credentials.append(urlLabel, tokenLabel);

@@ -2,9 +2,13 @@
 
 Extensión MV3 para controlar la reproducción, consultar la transcripción y guardar notas con timestamp en YouTube. Las notas continúan guardándose localmente y, de forma opcional, cada vídeo puede sincronizarse como una única nota Markdown de Obsidian.
 
+El ajuste de transcripción permite configurar el desfase visual de los subtítulos en milisegundos. Los valores positivos adelantan el texto y los negativos lo retrasan; el valor predeterminado es `1100`.
+
+La colección local del popup funciona como un explorador: agrupa las notas por carpeta y subcarpeta de Obsidian, después por vídeo, y permite buscar por título, canal, carpeta, tag o contenido. Cada vídeo reúne su nota general, tags y markers ordenados por tiempo.
+
 ## Integración con Obsidian
 
-La integración usa el plugin comunitario **Local REST API** de Obsidian y mantiene una cola offline local. Abre **Ajustes → Obsidian**, introduce la URL y el token del plugin, prueba la conexión y configura la carpeta raíz, Inbox y formato del archivo. La URL HTTP local predeterminada es `http://127.0.0.1:27123`; HTTPS también funciona si Brave confía en el certificado.
+La integración usa el plugin comunitario **Local REST API** de Obsidian y mantiene una cola offline local. Abre **Ajustes → Obsidian**, introduce la URL y el token del plugin, prueba la conexión y configura la carpeta raíz, Inbox y formato del archivo. La URL HTTP local predeterminada es `http://127.0.0.1:27123`; HTTPS también funciona si tu navegador confía en el certificado.
 
 Durante un vídeo, el botón de nota general abre un espacio independiente para el resumen y la organización. El botón de notas temporales queda dedicado a la lista de timestamps. Desde ambos editores puedes gestionar:
 
@@ -14,7 +18,9 @@ Durante un vídeo, el botón de nota general abre un espacio independiente para 
 - tags propios en cada nota con timestamp;
 - las notas con timestamp existentes.
 
-Con la integración habilitada, los cambios se guardan localmente y se intentan sincronizar automáticamente tras una breve pausa: nota general, tags, carpeta y notas timestamp. Si Obsidian está cerrado, permanecen pendientes. La extensión reintenta al iniciar Brave, al recuperar/cambiar la configuración y cada minuto. Los botones de sincronización permiten forzar un reintento, pero no son necesarios en el flujo normal.
+Con la integración habilitada, los cambios se guardan localmente y se intentan sincronizar automáticamente tras una breve pausa: nota general, tags, carpeta y notas timestamp. Si Obsidian está cerrado, permanecen pendientes. La extensión reintenta al iniciar el navegador, al recuperar/cambiar la configuración y cada minuto. Los botones de sincronización permiten forzar un reintento, pero no son necesarios en el flujo normal.
+
+Visitar un vídeo no crea por sí solo ningún archivo en el vault. La nota Markdown aparece únicamente después de añadir una nota general, un tag, un marker o un favorito. El formato de exportación queda asociado al vídeo en ese primer apunte, por lo que cambiar posteriormente los ajustes de contenido o plantilla solo afecta a vídeos nuevos.
 
 La carpeta predeterminada es una única ruta relativa al vault, por ejemplo `YouTube/Inbox` o `IA/Modelos`. Cada vídeo puede sustituirla con su propia carpeta. El nombre de archivo es editable con `{video_title}`, `{channel}`, `{date}` y `{video_id}`. La plantilla Markdown también es editable mediante `{{frontmatter}}`, `{{title}}`, `{{general_note}}`, `{{timestamp_notes}}`, `{{url}}`, `{{channel}}`, `{{video_id}}` y `{{tags}}`. El editor permite insertar estas variables como piezas, sin tener que escribirlas de memoria. Tanto los formatos de nombre como las plantillas pueden guardarse como presets personalizados y reutilizarse o eliminarse desde los ajustes. La plantilla predeterminada no repite el título como encabezado dentro de la nota.
 

@@ -3,6 +3,7 @@ importScripts("obsidian/core.js", "obsidian/adapter.js");
 const SETTINGS_KEY = "ytxObsidianSettings";
 const RECORDS_KEY = "ytxVideoRecords";
 const RETRY_ALARM = "ytxObsidianRetry";
+const EXPORT_SETTING_KEYS = ["defaultFolder", "fileNameTemplate", "noteTemplate", "includeSource", "includeVideoId", "includeChannel", "includeUrl", "includeNoteCreatedDate", "includeVideoPublishedDate", "includeGeneralNote", "includeTimestampNotes", "includeTags", "includeTimestampLinks", "contentOrder"];
 
 function storageGet(defaults) { return new Promise((resolve) => chrome.storage.local.get(defaults, resolve)); }
 function configured(settings) { return Boolean(settings.enabled && settings.apiUrl && settings.apiToken); }
@@ -15,18 +16,30 @@ function resolvedSettings(raw = {}) {
   if (raw.contentOrderVersion !== 3) settings.contentOrder = YTXObsidianCore.DEFAULT_SETTINGS.contentOrder.slice();
   return settings;
 }
+function snapshotSettings(settings) {
+  return Object.fromEntries(EXPORT_SETTING_KEYS.map((key) => [key, Array.isArray(settings[key]) ? settings[key].slice() : settings[key]]));
+}
+function recordSettings(record, current) { return { ...current, ...(record.obsidian?.exportSettings || {}) }; }
 
 async function syncOne(videoId) {
   const stored = await storageGet({ [SETTINGS_KEY]: {}, [RECORDS_KEY]: {} });
-  const settings = resolvedSettings(stored[SETTINGS_KEY]);
-  if (!configured(settings)) throw new Error("La integración con Obsidian no está configurada");
+  const currentSettings = resolvedSettings(stored[SETTINGS_KEY]);
+  if (!configured(currentSettings)) throw new Error("La integración con Obsidian no está configurada");
   const record = stored[RECORDS_KEY]?.[videoId];
   if (!record) throw new Error("No se encontraron datos locales del vídeo");
+  const settings = recordSettings(record, currentSettings);
+  const adapter = new ObsidianAdapter(currentSettings);
+  if (!YTXObsidianCore.hasNoteContent(record)) {
+    if (record.obsidian?.path) await adapter.removeNote(record.obsidian.path);
+    const records = stored[RECORDS_KEY] || {};
+    records[videoId] = { ...record, obsidian:{ ...(record.obsidian || {}), status:"never", path:"", fingerprint:"", error:"", relocateFrom:"" } };
+    await chrome.storage.local.set({ [RECORDS_KEY]:records });
+    return { ok:true, skipped:true, path:"", status:"never" };
+  }
   const desiredPath = YTXObsidianCore.notePath(record, settings);
   const previousPath = record.obsidian?.relocateFrom || "";
   const path = record.obsidian?.path || desiredPath;
   const fingerprint = YTXObsidianCore.contentFingerprint(record, settings);
-  const adapter = new ObsidianAdapter(settings);
   await adapter.updateNote(path, YTXObsidianCore.renderMarkdown(record, settings));
   if (previousPath && previousPath !== path) await adapter.removeNote(previousPath);
 
@@ -34,7 +47,7 @@ async function syncOne(videoId) {
   const records = latestStored[RECORDS_KEY] || {};
   const latest = records[videoId] || record;
   const stillCurrent = YTXObsidianCore.contentFingerprint(latest, settings) === fingerprint;
-  records[videoId] = { ...latest, obsidian:{ status:stillCurrent ? "synced" : "pending", path, fingerprint, syncedAt:new Date().toISOString(), error:"", relocateFrom:"" } };
+  records[videoId] = { ...latest, obsidian:{ ...(latest.obsidian || {}), status:stillCurrent ? "synced" : "pending", path, fingerprint, syncedAt:new Date().toISOString(), error:"", relocateFrom:"", exportSettings:latest.obsidian?.exportSettings || snapshotSettings(settings) } };
   await chrome.storage.local.set({ [RECORDS_KEY]: records });
   return { ok:true, path, status:records[videoId].obsidian.status };
 }
@@ -52,9 +65,13 @@ async function syncPending(force = false) {
   const settings = resolvedSettings(stored[SETTINGS_KEY]);
   if (!configured(settings)) return { synced:0, pending:0 };
   const ids = Object.entries(stored[RECORDS_KEY] || {})
-    .filter(([, record]) => force ||
-      ["never", "pending", "error"].includes(record.obsidian?.status || "never") ||
-      record.obsidian?.fingerprint !== YTXObsidianCore.contentFingerprint(record, settings))
+    .filter(([, record]) => {
+      const hasContent = YTXObsidianCore.hasNoteContent(record);
+      if (!hasContent) return Boolean(record.obsidian?.path);
+      const outputSettings = recordSettings(record, settings);
+      return force || ["never", "pending", "error"].includes(record.obsidian?.status || "never") ||
+        record.obsidian?.fingerprint !== YTXObsidianCore.contentFingerprint(record, outputSettings);
+    })
     .map(([id]) => id);
   let synced = 0;
   for (const id of ids) {
@@ -71,15 +88,13 @@ async function refreshAlarm() {
   else chrome.alarms.clear(RETRY_ALARM);
 }
 
-async function invalidateForSettings(change) {
+async function preserveExistingFormats(change) {
   const oldSettings = resolvedSettings(change.oldValue);
-  const newSettings = resolvedSettings(change.newValue);
-  const relocate = oldSettings.defaultFolder !== newSettings.defaultFolder || oldSettings.fileNameTemplate !== newSettings.fileNameTemplate;
   const stored = await storageGet({ [RECORDS_KEY]: {} });
   const records = stored[RECORDS_KEY] || {};
   Object.keys(records).forEach((id) => {
     const obsidian = records[id].obsidian || {};
-    records[id] = { ...records[id], obsidian:{ ...obsidian, status:"pending", ...(relocate && obsidian.path ? { path:"", relocateFrom:obsidian.path } : {}) } };
+    if (YTXObsidianCore.hasNoteContent(records[id]) && !obsidian.exportSettings) records[id] = { ...records[id], obsidian:{ ...obsidian, exportSettings:snapshotSettings(oldSettings) } };
   });
   await chrome.storage.local.set({ [RECORDS_KEY]: records });
 }
@@ -89,7 +104,7 @@ chrome.runtime.onStartup.addListener(() => { refreshAlarm(); syncPending(); });
 chrome.alarms.onAlarm.addListener((alarm) => { if (alarm.name === RETRY_ALARM) syncPending(); });
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes[SETTINGS_KEY]) return;
-  invalidateForSettings(changes[SETTINGS_KEY]).then(() => { refreshAlarm(); syncPending(); });
+  preserveExistingFormats(changes[SETTINGS_KEY]).then(() => { refreshAlarm(); syncPending(); });
 });
 refreshAlarm();
 

@@ -34,6 +34,10 @@
       .filter((tag) => tag && !seen.has(tag.toLocaleLowerCase()) && seen.add(tag.toLocaleLowerCase()));
   }
 
+  function hasNoteContent(record = {}) {
+    return Boolean(String(record.generalNote || "").trim() || normalizeTags(record.tags).length || (record.timestampNotes || []).length);
+  }
+
   function sanitizeFileName(value) {
     return String(value || "Untitled")
       .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
@@ -169,5 +173,5 @@
     return (hash >>> 0).toString(16);
   }
 
-  return { DEFAULT_SETTINGS, normalizeTags, normalizeTagCatalog, sanitizeFileName, safeFolder, formatTime, timestampUrl, renderFileName, notePath, renderMarkdown, contentFingerprint };
+  return { DEFAULT_SETTINGS, normalizeTags, normalizeTagCatalog, hasNoteContent, sanitizeFileName, safeFolder, formatTime, timestampUrl, renderFileName, notePath, renderMarkdown, contentFingerprint };
 });
