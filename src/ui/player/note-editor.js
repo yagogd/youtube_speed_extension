@@ -83,9 +83,17 @@
       editor.setAttribute("role", "dialog");
       editor.setAttribute("aria-label", "Crear nota del vídeo");
       applyAppearance(editor);
-      const heading = document.createElement("strong");
+      const heading = document.createElement("div");
       heading.className = "ytx-player-note-editor__drag-handle";
-      heading.textContent = "Nueva nota";
+      const headingTitle = document.createElement("strong");
+      headingTitle.textContent = "Nueva nota";
+      const closeButton = document.createElement("button");
+      closeButton.type = "button";
+      closeButton.className = "ytx-player-note-editor__close";
+      closeButton.textContent = "×";
+      closeButton.title = "Cerrar nueva nota";
+      closeButton.setAttribute("aria-label", "Cerrar nueva nota");
+      heading.append(headingTitle, closeButton);
       const times = document.createElement("div");
       times.className = "ytx-player-note-editor__times";
       const startLabel = document.createElement("label");
@@ -106,28 +114,51 @@
       textarea.placeholder = "Escribe tu nota…";
       textarea.setAttribute("aria-label", "Contenido de la nota");
       const tagsInput = document.createElement("input");
-      tagsInput.placeholder = "Tags de esta nota (separados por comas)";
+      tagsInput.placeholder = "Buscar o crear tag…";
       tagsInput.setAttribute("aria-label", "Tags de esta nota");
       tagsInput.setAttribute("autocomplete", "off");
+      const tagChips = document.createElement("div");
+      tagChips.className = "ytx-player-note-editor__tag-chips";
+      let selectedTags = [];
       const tagsCatalog = document.createElement("div");
       tagsCatalog.className = "ytx-video-note__catalog ytx-player-note-editor__tags-catalog";
       tagsCatalog.hidden = true;
       const tagsWrap = document.createElement("div");
       tagsWrap.className = "ytx-player-note-editor__tags-wrap";
-      tagsWrap.append(tagsInput, tagsCatalog);
+      tagsWrap.append(tagChips, tagsInput, tagsCatalog);
+      const renderTagChips = () => {
+        tagChips.replaceChildren(...selectedTags.map((tag) => {
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.textContent = `#${tag} ×`;
+          chip.setAttribute("aria-label", `Eliminar tag ${tag}`);
+          chip.addEventListener("click", () => {
+            selectedTags = selectedTags.filter((value) => value !== tag);
+            renderTagChips();
+            tagsInput.focus();
+          });
+          return chip;
+        }));
+      };
+      const commitTag = (value = tagsInput.value) => {
+        const additions = globalThis.YTXObsidianCore?.normalizeTags(value) || [];
+        if (!additions.length) return false;
+        selectedTags = globalThis.YTXObsidianCore.normalizeTags([...selectedTags, ...additions]);
+        tagsInput.value = "";
+        tagsCatalog.hidden = true;
+        renderTagChips();
+        return true;
+      };
       const renderTags = () => {
-        const parts = tagsInput.value.split(",");
-        const query = (parts.pop() || "").trim().toLocaleLowerCase();
-        const selected = globalThis.YTXObsidianCore?.normalizeTags(parts) || [];
-        const tags = (ytx.notes?.getAvailableTags?.() || []).filter((tag) => !selected.includes(tag) && (!query || tag.toLocaleLowerCase().includes(query))).slice(0, 60);
+        const query = tagsInput.value.trim().toLocaleLowerCase();
+        const tags = (ytx.notes?.getAvailableTags?.() || []).filter((tag) => !selectedTags.includes(tag) && (!query || tag.toLocaleLowerCase().includes(query))).slice(0, 60);
         tagsCatalog.replaceChildren(...tags.map((tag) => {
           const option = document.createElement("button");
           option.type = "button";
           option.textContent = tag;
           option.addEventListener("mousedown", (event) => event.preventDefault());
           option.addEventListener("click", () => {
-            tagsInput.value = [...selected, tag].join(", ") + ", ";
-            tagsCatalog.hidden = true;
+            commitTag(tag);
             tagsInput.focus();
           });
           return option;
@@ -136,6 +167,11 @@
       };
       tagsInput.addEventListener("focus", renderTags);
       tagsInput.addEventListener("input", renderTags);
+      tagsInput.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== ",") return;
+        event.preventDefault();
+        commitTag();
+      });
       tagsInput.addEventListener("blur", () => { tagsCatalog.hidden = true; });
       const hint = document.createElement("small");
       hint.textContent = "Enter para guardar · Shift + Enter para una línea nueva";
@@ -167,7 +203,7 @@
           endMs: endSeconds * 1000,
           text: "",
           note,
-          tags: globalThis.YTXObsidianCore?.normalizeTags(tagsInput.value) || [],
+          tags: globalThis.YTXObsidianCore?.normalizeTags([...selectedTags, tagsInput.value]) || [],
         });
         close();
         onSaved();
@@ -194,6 +230,7 @@
       }, 250);
       active = { editor, timer, keyboardCleanup, dragCleanup, returnFocus };
       cancel.addEventListener("click", close);
+      closeButton.addEventListener("click", close);
       save.addEventListener("click", saveNote);
       textarea.focus();
     }

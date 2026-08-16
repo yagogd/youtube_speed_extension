@@ -15,10 +15,83 @@
     const green = parseInt(hex.slice(3, 5), 16);
     const blue = parseInt(hex.slice(5, 7), 16);
     const opacity = Math.min(1, Math.max(0.35, Number(appearance.opacity) || 0.84));
-    panel.style.setProperty("--ytx-panel-background", `rgba(${red}, ${green}, ${blue}, ${opacity})`);
-    panel.style.setProperty("--ytx-panel-text", appearance.text || "#e4e4e7");
-    panel.style.setProperty("--ytx-panel-font", appearance.font || "Inter, Roboto, Arial, sans-serif");
-    panel.style.setProperty("--ytx-panel-font-size", `${Math.min(22, Math.max(10, Number(appearance.fontSize) || 13.5))}px`);
+    [panel, state.ui?.notesWorkspace].filter(Boolean).forEach((surface) => {
+      surface.style.setProperty("--ytx-panel-background", `rgba(${red}, ${green}, ${blue}, ${opacity})`);
+      surface.style.setProperty("--ytx-panel-text", appearance.text || "#e4e4e7");
+      surface.style.setProperty("--ytx-panel-font", appearance.font || "Inter, Roboto, Arial, sans-serif");
+      surface.style.setProperty("--ytx-panel-font-size", `${Math.min(22, Math.max(10, Number(appearance.fontSize) || 13.5))}px`);
+    });
+  }
+
+  function keepNotesWindowAnchored(ui, player) {
+    if (!player || typeof ResizeObserver !== "function") return () => {};
+    let anchor = { horizontal: "right", vertical: "bottom", x: 16, y: 72 };
+    const GAP = 72;
+    const MARGIN = 8;
+    const capture = () => {
+      if (!ui.notesWorkspace.offsetWidth || !ui.notesWorkspace.offsetHeight) return;
+      const panelRect = ui.notesWorkspace.getBoundingClientRect();
+      const playerRect = player.getBoundingClientRect();
+      const left = panelRect.left - playerRect.left;
+      const top = panelRect.top - playerRect.top;
+      const right = playerRect.right - panelRect.right;
+      const bottom = playerRect.bottom - panelRect.bottom;
+      anchor = {
+        horizontal: left <= right ? "left" : "right",
+        vertical: top <= bottom ? "top" : "bottom",
+        x: Math.max(8, left <= right ? left : right),
+        y: Math.max(8, top <= bottom ? top : bottom),
+      };
+    };
+    const safeArea = () => {
+      const playerRect = player.getBoundingClientRect();
+      const height = playerRect.height;
+      const bottom = Math.max(GAP + MARGIN, height - GAP);
+      const editor = player.querySelector(":scope > .ytx-player-note-editor");
+      let top = MARGIN;
+      if (editor) {
+        const editorRect = editor.getBoundingClientRect();
+        top = Math.max(MARGIN, Math.round(editorRect.bottom - playerRect.top) + 12);
+      }
+      return { top, bottom };
+    };
+    const constrain = () => {
+      if (!anchor || !ui.notesWorkspace.offsetWidth || !ui.notesWorkspace.offsetHeight) return;
+      const width = player.clientWidth;
+      const height = player.clientHeight;
+      const safe = safeArea();
+      const editor = player.querySelector(":scope > .ytx-player-note-editor");
+      if (editor) {
+        const cssMax = height - 104;
+        const safeMax = safe.bottom - safe.top;
+        ui.notesWorkspace.style.maxHeight = `${Math.round(Math.max(80, Math.min(cssMax, safeMax)))}px`;
+      } else ui.notesWorkspace.style.removeProperty("max-height");
+      let left = anchor.horizontal === "right" ? width - ui.notesWorkspace.offsetWidth - anchor.x : anchor.x;
+      let top = anchor.vertical === "bottom" ? height - ui.notesWorkspace.offsetHeight - anchor.y : anchor.y;
+      if (top < safe.top) top = safe.top;
+      if (height - (top + ui.notesWorkspace.offsetHeight) < GAP) top = height - GAP - ui.notesWorkspace.offsetHeight;
+      left = Math.max(8, Math.min(width - ui.notesWorkspace.offsetWidth - 8, left));
+      top = Math.max(Math.max(8, safe.top), Math.min(height - ui.notesWorkspace.offsetHeight - 8, top));
+      ui.notesWorkspace.style.left = `${Math.round(left)}px`;
+      ui.notesWorkspace.style.top = `${Math.round(top)}px`;
+      ui.notesWorkspace.style.right = "auto";
+      ui.notesWorkspace.style.bottom = "auto";
+    };
+    const onGeometryChange = () => { capture(); constrain(); };
+    ui.notesWorkspace.addEventListener("ytx:geometrychange", onGeometryChange);
+    const observer = new ResizeObserver(() => requestAnimationFrame(constrain));
+    observer.observe(player);
+    const editorObserver = new MutationObserver(() => requestAnimationFrame(constrain));
+    editorObserver.observe(player, { childList: true });
+    const windowObserver = new ResizeObserver(() => requestAnimationFrame(constrain));
+    windowObserver.observe(ui.notesWorkspace);
+    constrain();
+    return () => {
+      observer.disconnect();
+      editorObserver.disconnect();
+      windowObserver.disconnect();
+      ui.notesWorkspace.removeEventListener("ytx:geometrychange", onGeometryChange);
+    };
   }
 
   function showNotice(message) {
@@ -145,6 +218,10 @@
     applyAppearance();
     ui.cleanups.push(ytx.addResizeHandles(ui.panel));
     ui.cleanups.push(ytx.makePanelDraggable(ui.panel, ui.header));
+    const player = ui.notesWorkspace.parentElement?.closest(".html5-video-player");
+    ui.cleanups.push(ytx.addResizeHandles(ui.notesWorkspace, player));
+    ui.cleanups.push(ytx.makePanelDraggable(ui.notesWorkspace, ui.notesWorkspaceHeader, player));
+    ui.cleanups.push(keepNotesWindowAnchored(ui, player));
     ui.cleanups.push(setupAdaptiveHeader(ui));
     ui.cleanups.push(ytx.search.attach(ui));
     ui.cleanups.push(ytx.notes.attach(ui));
@@ -229,7 +306,17 @@
   function removePanel() {
     ytx.sync?.stop();
     if (!state.ui) return;
+    const notesRemainOpen = state.ui.notesWorkspace?.classList.contains("ytx-video-notes-window--active") ||
+      state.ui.notesWorkspace?.classList.contains("ytx-panel--notes-open") ||
+      state.ui.notesWorkspace?.classList.contains("ytx-panel--general-open") ||
+      state.ui.notesWorkspace?.classList.contains("ytx-panel--organization-open");
+    if (notesRemainOpen) {
+      state.ui.panel.classList.add("ytx-panel--notes-host-only");
+      ytx.playerControls?.updateTranscriptButton();
+      return;
+    }
     state.ui.cleanups.forEach((cleanup) => cleanup());
+    state.ui.notesWorkspace?.remove();
     state.ui.panel.remove();
     state.ui = null;
     ytx.playerControls?.updateTranscriptButton();

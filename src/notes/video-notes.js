@@ -466,36 +466,113 @@
 
   function attach(ui) {
     let saveTimer = 0;
+    const compactWorkspace = () => { ui.notesWorkspace.style.height = "auto"; };
+    const removeNotesOnlyHostIfEmpty = () => {
+      const anySectionOpen = ui.notesWorkspace.classList.contains("ytx-panel--notes-open") || ui.notesWorkspace.classList.contains("ytx-panel--general-open") || ui.notesWorkspace.classList.contains("ytx-panel--organization-open");
+      const windowActive = ui.notesWorkspace.classList.contains("ytx-video-notes-window--active");
+      if (!anySectionOpen && !windowActive && ui.panel.classList.contains("ytx-panel--notes-host-only")) ytx.panel.remove();
+    };
+    const makeChevron = () => {
+      const chevron = document.createElement("span");
+      chevron.className = "ytx-notes-section__chevron";
+      chevron.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+      return chevron;
+    };
+    const chevrons = { general: makeChevron(), organization: makeChevron(), notes: makeChevron() };
+    ui.videoNoteHeader.prepend(chevrons.general);
+    ui.organizationHeader.prepend(chevrons.organization);
+    ui.notesHeader.prepend(chevrons.notes);
+    const updateChevrons = () => {
+      const generalOpen = ui.notesWorkspace.classList.contains("ytx-panel--general-open");
+      const organizationOpen = ui.notesWorkspace.classList.contains("ytx-panel--organization-open");
+      const notesOpen = ui.notesWorkspace.classList.contains("ytx-panel--notes-open");
+      chevrons.general.classList.toggle("ytx-notes-section__chevron--closed", !generalOpen);
+      chevrons.organization.classList.toggle("ytx-notes-section__chevron--closed", !organizationOpen);
+      chevrons.notes.classList.toggle("ytx-notes-section__chevron--closed", !notesOpen);
+      ytx.panel.setButtonIcon(ui.generalClose, generalOpen ? "close" : "plus");
+      ytx.panel.labelButton(ui.generalClose, generalOpen ? "Cerrar nota general" : "Ampliar nota general");
+      ytx.panel.setButtonIcon(ui.organizationClose, organizationOpen ? "close" : "plus");
+      ytx.panel.labelButton(ui.organizationClose, organizationOpen ? "Cerrar organización" : "Ampliar organización");
+      ytx.panel.setButtonIcon(ui.notesClose, notesOpen ? "close" : "plus");
+      ytx.panel.labelButton(ui.notesClose, notesOpen ? "Cerrar marcadores de este vídeo" : "Ampliar marcadores de este vídeo");
+    };
+    const toggleSection = (cls) => {
+      const open = !ui.notesWorkspace.classList.contains(cls);
+      ui.panel.classList.toggle(cls, open);
+      ui.notesWorkspace.classList.toggle(cls, open);
+      if (open) ui.notesWorkspace.classList.add("ytx-video-notes-window--active");
+      if (open && (cls === "ytx-panel--general-open" || cls === "ytx-panel--organization-open")) refreshOrganizationCatalog();
+      if (cls === "ytx-panel--notes-open") {
+        ui.notesToggle.setAttribute("aria-expanded", String(open));
+        ytx.panel.labelButton(ui.notesToggle, open ? "Cerrar notas y favoritos de este vídeo" : "Mostrar notas y favoritos de este vídeo");
+        renderDrawer();
+      }
+      if (cls === "ytx-panel--general-open") ui.generalToggle.setAttribute("aria-expanded", String(open));
+      updateChevrons();
+      compactWorkspace();
+      removeNotesOnlyHostIfEmpty();
+    };
     const setNotesOpen = (open) => {
       if (open) {
         ui.panel.classList.add("ytx-panel--general-open");
+        ui.notesWorkspace.classList.add("ytx-panel--general-open");
+        ui.notesWorkspace.classList.add("ytx-panel--organization-open");
         ui.generalToggle.setAttribute("aria-expanded", "true");
         refreshOrganizationCatalog();
       } else {
         ui.panel.classList.remove("ytx-panel--general-open");
+        ui.notesWorkspace.classList.remove("ytx-panel--general-open");
+        ui.notesWorkspace.classList.remove("ytx-panel--organization-open");
         ui.generalToggle.setAttribute("aria-expanded", "false");
       }
       ui.panel.classList.toggle("ytx-panel--notes-open", open);
+      ui.notesWorkspace.classList.toggle("ytx-panel--notes-open", open);
+      if (open) ui.notesWorkspace.classList.add("ytx-video-notes-window--active");
       ui.notesToggle.setAttribute("aria-expanded", String(open));
       ytx.panel.labelButton(ui.notesToggle, open ? "Cerrar notas y favoritos de este vídeo" : "Mostrar notas y favoritos de este vídeo");
+      compactWorkspace();
       renderDrawer();
+      updateChevrons();
     };
     const setGeneralOpen = (open) => {
       if (open) {
         ui.panel.classList.remove("ytx-panel--notes-open");
+        ui.notesWorkspace.classList.remove("ytx-panel--notes-open");
         ui.notesToggle.setAttribute("aria-expanded", "false");
       }
       ui.panel.classList.toggle("ytx-panel--general-open", open);
+      ui.notesWorkspace.classList.toggle("ytx-panel--general-open", open);
+      if (open) ui.notesWorkspace.classList.add("ytx-video-notes-window--active");
       ui.generalToggle.setAttribute("aria-expanded", String(open));
       if (open) refreshOrganizationCatalog();
+      updateChevrons();
     };
     const onToggleNotes = () => setNotesOpen(!ui.panel.classList.contains("ytx-panel--notes-open"));
     const onCloseNotes = () => {
-      setNotesOpen(false);
-      ui.notesToggle.focus();
+      const closing = ui.notesWorkspace.classList.contains("ytx-panel--notes-open");
+      toggleSection("ytx-panel--notes-open");
+      if (closing && !ui.panel.classList.contains("ytx-panel--notes-host-only")) ui.notesToggle.focus();
     };
     const onToggleGeneral = () => setGeneralOpen(!ui.panel.classList.contains("ytx-panel--general-open"));
-    const onCloseGeneral = () => { setGeneralOpen(false); ui.generalToggle.focus(); };
+    const onCloseGeneral = () => {
+      const closing = ui.notesWorkspace.classList.contains("ytx-panel--general-open");
+      toggleSection("ytx-panel--general-open");
+      if (closing && !ui.panel.classList.contains("ytx-panel--notes-host-only")) ui.generalToggle.focus();
+    };
+    const onCloseOrganization = () => toggleSection("ytx-panel--organization-open");
+    const onCloseWorkspace = () => {
+      ui.panel.classList.remove("ytx-panel--notes-open", "ytx-panel--general-open");
+      ui.notesWorkspace.classList.remove("ytx-panel--notes-open", "ytx-panel--general-open", "ytx-panel--organization-open");
+      ui.notesWorkspace.classList.remove("ytx-video-notes-window--active");
+      ui.notesToggle.setAttribute("aria-expanded", "false");
+      ui.generalToggle.setAttribute("aria-expanded", "false");
+      compactWorkspace();
+      updateChevrons();
+      removeNotesOnlyHostIfEmpty();
+    };
+    const onHeaderGeneralClick = (event) => { if (event.target.closest(".ytx-notes__close")) return; toggleSection("ytx-panel--general-open"); };
+    const onHeaderOrganizationClick = (event) => { if (event.target.closest(".ytx-notes__close")) return; toggleSection("ytx-panel--organization-open"); };
+    const onHeaderNotesClick = (event) => { if (event.target.closest(".ytx-notes__close")) return; toggleSection("ytx-panel--notes-open"); };
     const onCancel = () => {
       editorDraft = null;
       ui.panel.classList.remove("ytx-panel--note-editor-open");
@@ -537,6 +614,16 @@
       commitTags();
     };
     const hideCatalog = (event) => { event.currentTarget.nextElementSibling.hidden = true; };
+    const scrollCatalog = (event) => {
+      const catalog = event.target instanceof Element ? event.target.closest(".ytx-video-note__catalog") : null;
+      if (!catalog || !ui.notesWorkspace.contains(catalog) || catalog.hidden) return;
+      if (catalog.scrollHeight <= catalog.clientHeight) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      const multiplier = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 18 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? catalog.clientHeight : 1;
+      catalog.scrollTop += event.deltaY * multiplier;
+    };
     const onTagFocus = () => { renderTagCatalog(); refreshOrganizationCatalog(); };
     const onFolderFocus = () => { renderFolderCatalog(); refreshOrganizationCatalog(); };
     const onNoteTagFocus = () => { renderNoteEditorTagCatalog(); refreshOrganizationCatalog(); };
@@ -547,6 +634,7 @@
       clearTimeout(saveTimer);
       await saveVideoFields();
       showFeedback("Nota general guardada");
+      ui.generalNote.blur();
     };
     const onGeneralInput = () => {
       resizeGeneralNote();
@@ -579,6 +667,11 @@
     ui.generalToggle.addEventListener("click", onToggleGeneral);
     ui.generalClose.addEventListener("click", onCloseGeneral);
     ui.notesClose.addEventListener("click", onCloseNotes);
+    ui.notesWorkspaceClose.addEventListener("click", onCloseWorkspace);
+    ui.organizationClose.addEventListener("click", onCloseOrganization);
+    ui.videoNoteHeader.addEventListener("click", onHeaderGeneralClick);
+    ui.organizationHeader.addEventListener("click", onHeaderOrganizationClick);
+    ui.notesHeader.addEventListener("click", onHeaderNotesClick);
     ui.noteEditorCancel.addEventListener("click", onCancel);
     ui.noteEditorSave.addEventListener("click", onSave);
     ui.noteEditorTags.addEventListener("focus", onNoteTagFocus);
@@ -590,14 +683,19 @@
     ui.tagsInput.addEventListener("keydown", onTagKeyDown);
     ui.tagsInput.addEventListener("change", commitTags);
     ui.tagsInput.addEventListener("focus", onTagFocus);
+    ui.tagsInput.addEventListener("click", onTagFocus);
     ui.tagsInput.addEventListener("input", renderTagCatalog);
     ui.tagsInput.addEventListener("blur", hideCatalog);
     ui.folder.addEventListener("focus", onFolderFocus);
+    ui.folder.addEventListener("click", onFolderFocus);
     ui.folder.addEventListener("input", renderFolderCatalog);
     ui.folder.addEventListener("blur", hideCatalog);
     ui.folder.addEventListener("keydown", onFolderKeyDown);
+    window.addEventListener("wheel", scrollCatalog, { capture:true, passive:false });
+    [ui.folderCatalog, ui.tagsCatalog].forEach((catalog) => catalog.addEventListener("wheel", scrollCatalog, { capture:true, passive:false }));
     ui.syncButton.addEventListener("click", onSync);
     chrome.storage.onChanged.addListener(onStorageChanged);
+    updateChevrons();
     loadCurrent();
     loadVideoRecord();
     refreshOrganizationCatalog();
@@ -606,6 +704,11 @@
       ui.generalToggle.removeEventListener("click", onToggleGeneral);
       ui.generalClose.removeEventListener("click", onCloseGeneral);
       ui.notesClose.removeEventListener("click", onCloseNotes);
+      ui.notesWorkspaceClose.removeEventListener("click", onCloseWorkspace);
+      ui.organizationClose.removeEventListener("click", onCloseOrganization);
+      ui.videoNoteHeader.removeEventListener("click", onHeaderGeneralClick);
+      ui.organizationHeader.removeEventListener("click", onHeaderOrganizationClick);
+      ui.notesHeader.removeEventListener("click", onHeaderNotesClick);
       ui.noteEditorCancel.removeEventListener("click", onCancel);
       ui.noteEditorSave.removeEventListener("click", onSave);
       ui.noteEditorTags.removeEventListener("focus", onNoteTagFocus);
@@ -617,12 +720,16 @@
       ui.tagsInput.removeEventListener("keydown", onTagKeyDown);
       ui.tagsInput.removeEventListener("change", commitTags);
       ui.tagsInput.removeEventListener("focus", onTagFocus);
+      ui.tagsInput.removeEventListener("click", onTagFocus);
       ui.tagsInput.removeEventListener("input", renderTagCatalog);
       ui.tagsInput.removeEventListener("blur", hideCatalog);
       ui.folder.removeEventListener("focus", onFolderFocus);
+      ui.folder.removeEventListener("click", onFolderFocus);
       ui.folder.removeEventListener("input", renderFolderCatalog);
       ui.folder.removeEventListener("blur", hideCatalog);
       ui.folder.removeEventListener("keydown", onFolderKeyDown);
+      window.removeEventListener("wheel", scrollCatalog, true);
+      [ui.folderCatalog, ui.tagsCatalog].forEach((catalog) => catalog.removeEventListener("wheel", scrollCatalog, true));
       ui.syncButton.removeEventListener("click", onSync);
       clearTimeout(saveTimer);
       clearTimeout(autoSyncTimer);

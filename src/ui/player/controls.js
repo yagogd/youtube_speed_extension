@@ -35,7 +35,7 @@
 
   function updateTranscriptButton() {
     if (!currentUi) return;
-    const visible = Boolean(state.ui?.panel?.isConnected);
+    const visible = Boolean(state.ui?.panel?.isConnected && !state.ui.panel.classList.contains("ytx-panel--notes-host-only"));
     currentUi.transcriptButton.setAttribute("aria-pressed", String(visible));
     currentUi.transcriptButton.classList.toggle("ytx-player-control--active", visible);
     currentUi.transcriptButton.title = visible ? "Ocultar transcripción" : "Mostrar transcripción";
@@ -60,6 +60,15 @@
   const noteEditor = ytx.createPlayerNoteEditor({ onSaved: () => noteMarkers.refresh() });
 
   function toggleTranscript() {
+    if (state.ui?.panel?.isConnected && state.ui.panel.classList.contains("ytx-panel--notes-host-only")) {
+      state.ui.panel.classList.remove("ytx-panel--notes-host-only");
+      state.dismissedVideoId = null;
+      chrome.storage.local.set({ transcriptEnabled: true });
+      state.settings.enabled = true;
+      ytx.bridge.sendControl();
+      updateTranscriptButton();
+      return;
+    }
     if (state.ui?.panel?.isConnected) {
       chrome.storage.local.set({ transcriptEnabled: false });
       return;
@@ -75,12 +84,9 @@
 
   function openNotes(forceOpen = false) {
     state.dismissedVideoId = null;
-    if (!state.settings.enabled) {
-      chrome.storage.local.set({ transcriptEnabled: true });
-      state.settings.enabled = true;
-    }
-    const ui = ytx.panel.ensure();
-    ytx.bridge.sendControl();
+    const transcriptWasVisible = Boolean(state.ui?.panel?.isConnected && !state.ui.panel.classList.contains("ytx-panel--notes-host-only"));
+    const ui = state.ui || ytx.panel.create();
+    if (!transcriptWasVisible) ui?.panel?.classList.add("ytx-panel--notes-host-only");
     setTimeout(() => {
       const notesToggle = state.ui?.notesToggle || ui?.notesToggle;
       const isOpen = Boolean(state.ui?.panel?.classList.contains("ytx-panel--notes-open"));

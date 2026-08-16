@@ -8,6 +8,7 @@
     chevronUp: ['<path d="m6 15 6-6 6 6"/>'],
     chevronDown: ['<path d="m6 9 6 6 6-6"/>'],
     close: ['<path d="m6 6 12 12M18 6 6 18"/>'],
+    plus: ['<path d="M12 5v14M5 12h14"/>'],
     copy: ['<rect x="8" y="8" width="11" height="11" rx="2"/>', '<path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'],
     check: ['<path d="m5 12 4 4L19 6"/>'],
     edit: ['<path d="M12 20h9"/>', '<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>'],
@@ -127,11 +128,14 @@
     generalHint.className = "ytx-video-note__general-hint";
     generalHint.textContent = "Enter para guardar · Shift + Enter para una nueva línea";
     generalLabel.appendChild(generalHint);
-    const organization = document.createElement("details");
-    organization.className = "ytx-video-note__organization";
-    organization.open = true;
-    const organizationSummary = document.createElement("summary");
-    organizationSummary.textContent = "ORGANIZACIÓN";
+    const organization = document.createElement("section");
+    organization.className = "ytx-video-organization";
+    const organizationHeader = document.createElement("div");
+    organizationHeader.className = "ytx-video-organization__header";
+    const organizationTitle = document.createElement("strong");
+    organizationTitle.textContent = "Organización";
+    const organizationClose = createButton("ytx-notes__close", "close", "Cerrar organización");
+    organizationHeader.append(organizationTitle, organizationClose);
     const folder = document.createElement("input");
     folder.className = "ytx-video-note__folder";
     folder.placeholder = "Buscar o crear carpeta…";
@@ -166,7 +170,7 @@
     tagsCatalog.className = "ytx-video-note__catalog";
     tagsCatalog.hidden = true;
     tagsWrap.append(tagsTitle, tagsChips, tagsInput, tagsCatalog);
-    organization.append(organizationSummary, folderField, tagsWrap);
+    organization.append(organizationHeader, folderField, tagsWrap);
     const syncRow = document.createElement("div");
     syncRow.className = "ytx-video-note__sync";
     const syncStatus = document.createElement("span");
@@ -180,7 +184,8 @@
     organizationFeedback.className = "ytx-video-note__feedback";
     organizationFeedback.setAttribute("role", "status");
     organizationFeedback.setAttribute("aria-live", "polite");
-    videoNote.append(videoNoteHeader, generalLabel, organization, organizationFeedback);
+    videoNote.append(videoNoteHeader, generalLabel);
+    organization.appendChild(organizationFeedback);
     notesDrawer.append(notesHeader, notesList);
 
     const noteEditor = document.createElement("section");
@@ -230,14 +235,30 @@
     title.replaceChildren(trackUi.trackSelector);
     headerActions.append(transcriptActions, windowActions);
     header.append(title, headerActions);
-    panel.append(header, searchBar, videoNote, notesDrawer, noteEditor, content);
-    (document.fullscreenElement || document.body).appendChild(panel);
+    const notesWorkspace = document.createElement("aside");
+    notesWorkspace.className = "ytx-video-notes-window";
+    notesWorkspace.setAttribute("role", "dialog");
+    notesWorkspace.setAttribute("aria-label", "Notas y favoritos de este vídeo");
+    const notesWorkspaceHeader = document.createElement("div");
+    notesWorkspaceHeader.className = "ytx-video-notes-window__header";
+    const notesWorkspaceTitle = document.createElement("strong");
+    notesWorkspaceTitle.textContent = "Notas del vídeo";
+    const notesWorkspaceClose = createButton("ytx-video-notes-window__close", "close", "Cerrar todas las notas del vídeo");
+    notesWorkspaceHeader.append(notesWorkspaceTitle, notesWorkspaceClose);
+    const notesBody = document.createElement("div");
+    notesBody.className = "ytx-video-notes-window__body";
+    notesBody.append(videoNote, organization, notesDrawer);
+    notesWorkspace.replaceChildren(notesWorkspaceHeader, notesBody);
+    panel.append(header, searchBar, noteEditor, content);
+    const mountRoot = document.fullscreenElement || document.body;
+    mountRoot.appendChild(panel);
+    (document.querySelector(".html5-video-player") || mountRoot).appendChild(notesWorkspace);
 
     return {
-      panel, header, title, content, headerActions, ...trackUi,
+      panel, notesWorkspace, notesWorkspaceHeader, notesWorkspaceClose, header, title, content, headerActions, ...trackUi,
       searchToggle, searchBar, searchInput, searchCounter, searchPrevious, searchNext, searchClose,
-      generalToggle, generalClose, videoNote, organizationFeedback,
-      notesToggle, notesDrawer, notesClose, notesList, generalNote, folder, folderSelection, folderCatalog, tagsInput, tagsChips, tagsCatalog, syncStatus, syncButton,
+      generalToggle, generalClose, videoNote, videoNoteHeader, organization, organizationHeader, organizationClose, organizationFeedback,
+      notesToggle, notesDrawer, notesHeader, notesClose, notesList, generalNote, folder, folderSelection, folderCatalog, tagsInput, tagsChips, tagsCatalog, syncStatus, syncButton,
       noteEditor, noteEditorTime, noteEditorText, noteEditorInput, noteEditorTags, noteEditorTagsCatalog, noteEditorCancel, noteEditorSave,
       collapseHeaderButton, copyButton, closeButton, cleanups: [],
     };

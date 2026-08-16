@@ -94,11 +94,25 @@
       button.setAttribute("aria-expanded", "false");
     }
 
+    function raiseAboveNotesOverlays() {
+      const host = element.parentElement;
+      if (!host) return;
+      let highest = 76;
+      host.querySelectorAll(".ytx-video-notes-window, .ytx-player-note-editor, .ytp-settings-menu, [class*='ytp-note']").forEach((candidate) => {
+        const z = Number(getComputedStyle(candidate).zIndex);
+        if (Number.isFinite(z)) highest = Math.max(highest, z);
+      });
+      element.style.zIndex = String(highest + 1);
+    }
+
     function toggle() {
       const opening = element.hidden;
       element.hidden = !opening;
       button.setAttribute("aria-expanded", String(!element.hidden));
-      if (opening) chrome.storage.local.get({ speedPresets: DEFAULT_PRESETS }, (stored) => renderPresets(stored.speedPresets));
+      if (opening) {
+        raiseAboveNotesOverlays();
+        chrome.storage.local.get({ speedPresets: DEFAULT_PRESETS }, (stored) => renderPresets(stored.speedPresets));
+      }
     }
 
     const onDocumentClick = (event) => {

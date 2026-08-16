@@ -3,6 +3,9 @@
   if (globalThis.YTXI18n) return;
 
   const EN = {
+    "Organización": "Organization", "Cerrar organización": "Close organization",
+    "Notas del vídeo": "Video notes", "Cerrar todas las notas del vídeo": "Close all video notes",
+    "Cerrar nueva nota": "Close new note",
     "Apariencia y disposición": "Appearance and layout",
     "Personaliza el aspecto del panel o recupera su posición y tamaño originales.": "Customize the panel or restore its original position and size.",
     "HTTP local evita problemas con certificados. También puedes usar HTTPS si tu navegador confía en el certificado.": "Local HTTP avoids certificate issues. You can also use HTTPS if your browser trusts the certificate.",
