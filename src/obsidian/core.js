@@ -13,7 +13,7 @@
     fileNameTemplate: "{video_title}",
     noteTemplate: "{{frontmatter}}\n\n{{general_note}}\n\n{{timestamp_notes}}",
     generalNoteTemplate: "## Nota general\n\n{{content}}",
-    timestampNoteTemplate: "### [{{time}}]({{url}})\n{{tags}}\n*{{text}}*\n\n{{note}}",
+    timestampNoteTemplate: "### [{{time}}]({{link}})\n{{tags}}\n*{{text}}*\n\n{{note}}",
     saveBehavior: "auto",
     includeMetadata: true,
     includeSource: true,
@@ -121,6 +121,7 @@
       return renderTemplate(template, {
         time: formatTime(note.startMs),
         url: record.videoUrl || "",
+        link: timestampUrl(record.videoUrl, note.startMs),
         text: String(note.text || "").trim(),
         note: String(note.note || "").trim(),
         tags: tags.map((tag) => `#${tag}`).join(" "),

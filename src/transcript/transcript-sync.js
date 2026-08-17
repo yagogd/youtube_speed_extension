@@ -17,10 +17,10 @@
     } else if (rowRect.bottom > contentRect.bottom - padding) {
       nextScrollTop += rowRect.bottom - contentRect.bottom + padding;
     }
+    nextScrollTop = Math.max(0, Math.min(content.scrollHeight - content.clientHeight, nextScrollTop));
     if (Math.abs(nextScrollTop - content.scrollTop) < 1) return;
-    state.autoScrollInProgress = true;
+    state.pendingScrollTop = nextScrollTop;
     content.scrollTop = nextScrollTop;
-    requestAnimationFrame(() => { state.autoScrollInProgress = false; });
   }
 
   function updateActiveBlock() {
@@ -57,13 +57,11 @@
     if (syncedVideo) {
       seekHandler = () => {
         state.autoScrollEnabled = true;
-        state.autoScrollInProgress = true;
         tick();
         requestAnimationFrame(() => {
           tick();
           const activeRow = state.ui?.content.querySelector(`[data-block-index="${state.activeBlockIndex}"]`);
           scrollRowIntoView(activeRow);
-          requestAnimationFrame(() => { state.autoScrollInProgress = false; });
         });
       };
       syncedVideo.addEventListener("seeked", seekHandler);

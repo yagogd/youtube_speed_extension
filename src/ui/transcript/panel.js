@@ -290,9 +290,11 @@
 
     let previousScrollTop = ui.content.scrollTop;
     const onContentScroll = () => {
-      if (state.autoScrollInProgress) {
+      if (state.pendingScrollTop != null) {
+        const matched = Math.abs(ui.content.scrollTop - state.pendingScrollTop) < 2;
+        state.pendingScrollTop = null;
         previousScrollTop = ui.content.scrollTop;
-        return;
+        if (matched) return;
       }
       const distanceFromBottom = ui.content.scrollHeight - ui.content.scrollTop - ui.content.clientHeight;
       if (ui.content.scrollTop < previousScrollTop - 1) state.autoScrollEnabled = false;

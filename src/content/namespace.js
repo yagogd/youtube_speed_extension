@@ -13,7 +13,7 @@
     renderedBlockCount: 0,
     activeBlockIndex: -1,
     autoScrollEnabled: true,
-    autoScrollInProgress: false,
+    pendingScrollTop: null,
     search: { query: "", matches: [], currentMatch: -1 },
     savedNotes: [],
   };

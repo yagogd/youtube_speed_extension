@@ -611,6 +611,7 @@
       showFeedback(`${additions.length === 1 ? "Tag añadido" : "Tags añadidos"}`);
     };
     const onTagKeyDown = (event) => {
+      event.stopPropagation();
       if (event.key !== "Enter" && event.key !== ",") return;
       event.preventDefault();
       commitTags();
@@ -643,6 +644,7 @@
       queueFieldSave();
     };
     const onFolderKeyDown = (event) => {
+      event.stopPropagation();
       if (event.key !== "Enter") return;
       event.preventDefault();
       const folder = ui.folder.value.trim();
@@ -680,9 +682,14 @@
     ui.noteEditorTags.addEventListener("input", renderNoteEditorTagCatalog);
     ui.noteEditorTags.addEventListener("blur", hideCatalog);
     ui.panel.addEventListener("keydown", onEditorKeyDown);
+    const stopKey = (event) => event.stopPropagation();
     ui.generalNote.addEventListener("input", onGeneralInput);
     ui.generalNote.addEventListener("keydown", onGeneralKeyDown);
+    ui.generalNote.addEventListener("keyup", stopKey);
+    ui.generalNote.addEventListener("keypress", stopKey);
     ui.tagsInput.addEventListener("keydown", onTagKeyDown);
+    ui.tagsInput.addEventListener("keyup", stopKey);
+    ui.tagsInput.addEventListener("keypress", stopKey);
     ui.tagsInput.addEventListener("change", commitTags);
     ui.tagsInput.addEventListener("focus", onTagFocus);
     ui.tagsInput.addEventListener("click", onTagFocus);
@@ -693,6 +700,8 @@
     ui.folder.addEventListener("input", renderFolderCatalog);
     ui.folder.addEventListener("blur", hideCatalog);
     ui.folder.addEventListener("keydown", onFolderKeyDown);
+    ui.folder.addEventListener("keyup", stopKey);
+    ui.folder.addEventListener("keypress", stopKey);
     window.addEventListener("wheel", scrollCatalog, { capture:true, passive:false });
     [ui.folderCatalog, ui.tagsCatalog].forEach((catalog) => catalog.addEventListener("wheel", scrollCatalog, { capture:true, passive:false }));
     ui.syncButton.addEventListener("click", onSync);
@@ -719,7 +728,11 @@
       ui.panel.removeEventListener("keydown", onEditorKeyDown);
       ui.generalNote.removeEventListener("input", onGeneralInput);
       ui.generalNote.removeEventListener("keydown", onGeneralKeyDown);
+      ui.generalNote.removeEventListener("keyup", stopKey);
+      ui.generalNote.removeEventListener("keypress", stopKey);
       ui.tagsInput.removeEventListener("keydown", onTagKeyDown);
+      ui.tagsInput.removeEventListener("keyup", stopKey);
+      ui.tagsInput.removeEventListener("keypress", stopKey);
       ui.tagsInput.removeEventListener("change", commitTags);
       ui.tagsInput.removeEventListener("focus", onTagFocus);
       ui.tagsInput.removeEventListener("click", onTagFocus);
@@ -730,6 +743,8 @@
       ui.folder.removeEventListener("input", renderFolderCatalog);
       ui.folder.removeEventListener("blur", hideCatalog);
       ui.folder.removeEventListener("keydown", onFolderKeyDown);
+      ui.folder.removeEventListener("keyup", stopKey);
+      ui.folder.removeEventListener("keypress", stopKey);
       window.removeEventListener("wheel", scrollCatalog, true);
       [ui.folderCatalog, ui.tagsCatalog].forEach((catalog) => catalog.removeEventListener("wheel", scrollCatalog, true));
       ui.syncButton.removeEventListener("click", onSync);

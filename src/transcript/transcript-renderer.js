@@ -53,7 +53,7 @@
     const video = document.querySelector("video");
     if (!ui || !blocks || !video || state.settings.mode !== "progressive") return;
 
-    const currentMs = video.currentTime * 1000 + (ytx.CAPTION_DISPLAY_LEAD_MS || 0);
+    const currentMs = video.currentTime * 1000 + (Number(state.settings.displayLeadMs) || 0);
     const nextIndex = blocks.findIndex((block) => block.startMs > currentMs);
     const targetCount = nextIndex === -1 ? blocks.length : nextIndex;
 
@@ -72,7 +72,11 @@
       state.renderedBlockCount = targetCount;
       ytx.search.refresh();
       ytx.notes.refreshMarkers();
-      if (state.autoScrollEnabled) ui.content.scrollTop = ui.content.scrollHeight;
+      if (state.autoScrollEnabled) {
+        const bottom = ui.content.scrollHeight - ui.content.clientHeight;
+        state.pendingScrollTop = bottom;
+        ui.content.scrollTop = bottom;
+      }
     }
     ytx.sync.updateActiveBlock();
   }

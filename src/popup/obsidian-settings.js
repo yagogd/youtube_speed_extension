@@ -3,7 +3,7 @@ import { getStored, setStored } from "./storage.js";
 const KEY = "ytxObsidianSettings";
 const DEFAULT_NOTE_TEMPLATE = "{{frontmatter}}\n\n{{general_note}}\n\n{{timestamp_notes}}";
 const DEFAULT_GENERAL_NOTE_TEMPLATE = "## Nota general\n\n{{content}}";
-const DEFAULT_TIMESTAMP_NOTE_TEMPLATE = "### [{{time}}]({{url}})\n{{tags}}\n*{{text}}*\n\n{{note}}";
+const DEFAULT_TIMESTAMP_NOTE_TEMPLATE = "### [{{time}}]({{link}})\n{{tags}}\n*{{text}}*\n\n{{note}}";
 const DEFAULTS = {
   enabled:false, apiUrl:"http://127.0.0.1:27123", apiToken:"", defaultFolder:"YouTube/Inbox",
   fileNameTemplate:"{video_title}", noteTemplate:DEFAULT_NOTE_TEMPLATE, saveBehavior:"auto",
@@ -391,9 +391,23 @@ export async function initObsidianSettings() {
     { token:"{{content}}", label:"Contenido" },
   ], "Escribe el bloque de la nota general. Pulsa la pieza para insertarla donde esté el cursor.");
   const timestampNoteVariables = createVariableHelper(timestampNoteField.textarea, [
-    { token:"{{time}}", label:"Minuto" }, { token:"{{url}}", label:"Enlace" },
+    { token:"{{time}}", label:"Minuto" }, { token:"{{link}}", label:"Enlace al minuto" }, { token:"{{url}}", label:"Enlace" },
     { token:"{{tags}}", label:"Tags" }, { token:"{{text}}", label:"Texto" }, { token:"{{note}}", label:"Nota" },
-  ], "Compón el formato de cada momento guardado. Envuelve las piezas en Markdown: [{{time}}]({{url}}), *{{text}}*, #{{tags}}…");
+  ], "Compón el formato de cada momento guardado. Envuelve las piezas en Markdown: [{{time}}]({{link}}), *{{text}}*, #{{tags}}…");
+  const makeResetButton = (field, defaultValue) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "secondary wide-button";
+    button.style.marginTop = "10px";
+    button.textContent = "Restaurar valores";
+    button.addEventListener("click", () => {
+      field.value = defaultValue;
+      field.dispatchEvent(new Event("change"));
+    });
+    return button;
+  };
+  const generalNoteReset = makeResetButton(generalNoteField.textarea, DEFAULT_GENERAL_NOTE_TEMPLATE);
+  const timestampNoteReset = makeResetButton(timestampNoteField.textarea, DEFAULT_TIMESTAMP_NOTE_TEMPLATE);
 
   const body = document.querySelector(".obsidian-settings");
   const connection = makeGroup("Conexión", "Acceso local y cola offline");
@@ -429,9 +443,9 @@ export async function initObsidianSettings() {
   const noteEditor = makeEditor("2. Plantilla Markdown", "Define qué aspecto tendrá el contenido de la nota.");
   noteEditor.append(noteLabel, noteVariables, noteCopy, noteManager);
   const generalNoteEditor = makeEditor("3. Nota general", "Formato del bloque de resumen o conclusiones.");
-  generalNoteEditor.append(generalNoteField.label, generalNoteVariables);
+  generalNoteEditor.append(generalNoteField.label, generalNoteVariables, generalNoteReset);
   const timestampNoteEditor = makeEditor("4. Notas con timestamp", "Formato de cada momento guardado del vídeo.");
-  timestampNoteEditor.append(timestampNoteField.label, timestampNoteVariables);
+  timestampNoteEditor.append(timestampNoteField.label, timestampNoteVariables, timestampNoteReset);
   templates.append(fileEditor, noteEditor, generalNoteEditor, timestampNoteEditor);
   content.append(createContentOrganizer(options, status));
   body.replaceChildren(connection, destination, templates, content);

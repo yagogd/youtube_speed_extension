@@ -36,7 +36,7 @@ test("genera Markdown Obsidian ordenado y conserva wikilinks", () => {
   assert.match(markdown, /- "machine-learning"/);
   assert.match(markdown, /\[\[Backpropagation\]\]/);
   assert.ok(markdown.indexOf("### [2:41]") < markdown.indexOf("### [7:32]"));
-  assert.match(markdown, /### \[2:41\]\(https:\/\/www\.youtube\.com\/watch\?v=abc123\)/);
+  assert.match(markdown, /### \[2:41\]\(https:\/\/www\.youtube\.com\/watch\?v=abc123&t=161s\)/);
   assert.doesNotMatch(markdown, /^# Neural Networks/m);
 });
 
