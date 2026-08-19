@@ -1,50 +1,137 @@
+<p align="center">
+  <img src="assets/framenotes_icon_128.png" alt="Icono de FrameNotes" width="96" />
+</p>
+
 # FrameNotes
 
-Extensión MV3 para controlar la reproducción, consultar la transcripción y guardar notas con timestamp en YouTube. Las notas continúan guardándose localmente y, de forma opcional, cada vídeo puede sincronizarse como una única nota Markdown de Obsidian.
+FrameNotes es una extensión para el navegador que añade herramientas a los vídeos de YouTube para estudiar, revisar o simplemente ver contenido con más comodidad. Todo funciona dentro de la propia página del vídeo y, si lo deseas, se sincroniza con Obsidian.
 
-El ajuste de transcripción permite configurar el desfase visual de los subtítulos en milisegundos. Los valores positivos adelantan el texto y los negativos lo retrasan; el valor predeterminado es `1100`.
+No necesitas saber programar para usarla: se instala, se ajusta desde un menú sencillo y se olvida..
 
-La colección local del popup funciona como un explorador: agrupa las notas por carpeta y subcarpeta de Obsidian, después por vídeo, y permite buscar por título, canal, carpeta, tag o contenido. Cada vídeo reúne su nota general, tags y markers ordenados por tiempo.
+## Índice
+
+- [Funciones principales](#funciones-principales)
+- [Instalación](#instalación)
+- [Primeros pasos](#primeros-pasos)
+- [Velocidad de reproducción](#velocidad-de-reproducción)
+- [Transcripción](#transcripción)
+- [Notas y favoritos](#notas-y-favoritos)
+- [Tu colección](#tu-colección)
+- [Integración con Obsidian](#integración-con-obsidian)
+- [Apariencia y ajustes](#apariencia-y-ajustes)
+- [Para desarrolladores](#para-desarrolladores)
+  - [Permisos](#permisos)
+  - [Pruebas](#pruebas)
+  - [Limitaciones](#limitaciones)
+
+
+
+## Funciones principales
+
+- **Velocidad de reproducción**: cambia la velocidad entre 0,1× y 16× con deslizador, botones rápidos o atajos de teclado.
+- **Transcripción**: un panel lateral muestra los subtítulos del vídeo. Puedes  elegir el idioma, como quieras que se vean, desde linea a linea, por parrafos o todo el video de golpe, busca en ellos, copialos o haz notas referenciando partes textuales del video.
+- **Notas con marca de tiempo**: apunta una nota justo en el momento del vídeo que te interesa y vuelve a ella con un clic.
+- **Favoritos**: guarda momentos concretos y recupéralos cuando quieras.
+- **Nota general**: un espacio para resumir el vídeo, con carpeta y etiquetas (tags) propias.
+- **Obsidian (opcional)**: cada vídeo puede convertirse en una única nota Markdown en tu vault.
+- **Retroceso al pausar**: al detener el vídeo, permite retrocede unos segundos para retomar el contexto.
+
+## Instalación
+
+1. Descarga o clona este repositorio.
+2. Abre la página de extensiones de tu navegador (por ejemplo, `chrome://extensions` o `brave://extensions`).
+3. Activa el **modo desarrollador**.
+4. Pulsa **Cargar descomprimida** (o *Load unpacked*) y selecciona la carpeta del proyecto.
+5. Abre cualquier vídeo de YouTube y verás los nuevos botones en el reproductor.
+
+## Primeros pasos
+
+Al abrir la extensión (clic en el icono de FrameNotes) verás el **control rápido**, con los interruptores de cada función:
+
+- **Transcripción**: activa o desactiva el panel de subtítulos.
+- **Obsidian**: activa o desactiva la conexión con Obsidian.
+- **Retroceso al pausar**: recupera contexto al detener el vídeo.
+- **Atajos de velocidad**: teclas para saltar a una velocidad concreta.
+
+Desde ahí también puedes abrir la **configuración completa** para personalizar cada detalle. Todos los cambios se guardan automáticamente.
+
+En el propio reproductor de YouTube aparecen cuatro botones nuevos: mostrar/ocultar la transcripción, controlar la velocidad, abrir las notas del vídeo y crear una nota en ese instante.
+
+## Velocidad de reproducción
+
+- Escribe una velocidad exacta o usa el deslizador.
+- Velocidades rápidas predefinidas (0,5×, 1×, 1,5×… 8×) que puedes personalizar.
+- **Atajos de teclado**: asigna una tecla a una velocidad y decide si se aplica al pulsarla o solo mientras la mantienes.
+- Activa **Mantener la velocidad** para que se conserve al cambiar de vídeo.
+
+## Transcripción
+
+El panel de transcripción se abre a la derecha del vídeo y se puede **arrastrar, redimensionar y recolocar**. Incluye:
+
+- **Idioma preferido**: se prioriza una pista manual del idioma elegido y, si no existe, la automática. También puedes destacar idiomas favoritos en el selector.
+- **Búsqueda**: localiza texto dentro de la transcripción y salta entre coincidencias.
+- **Copiar**: copia la transcripción completa con un clic.
+- **Modo de contenido**: mostrar todo desde el inicio o solo en tiempo real a medida que avanza el vídeo.
+- **Agrupación**: una frase por bloque o el formato original de YouTube.
+- **Desfase**: ajusta el retraso o adelanto visual de los subtítulos en milisegundos.
+
+## Notas y favoritos
+
+- **Crear nota en este momento** (botón del reproductor): guarda una nota ligada al instante actual, con texto y tags opcionales.
+- Los marcadores aparecen sobre la **barra de progreso** del vídeo; pásales el ratón para verlos o haz clic para saltar a ellos.
+- **Nota general**: resumen, conclusiones y organización del vídeo (carpeta y tags).
+
+## Tu colección
+
+Desde el popup, **★ Abrir notas y favoritos** muestra tu colección local: todas las notas agrupadas por carpeta, luego por vídeo, con búsqueda por título, canal, carpeta, tag o contenido. También puedes **descargar** el contenido en Markdown. En caso de vincularlo con obsidian las notas se almacen localmente en el navegador hasta que se habilita la conexion con obsidian.
 
 ## Integración con Obsidian
 
-La integración usa el plugin comunitario **Local REST API** de Obsidian y mantiene una cola offline local. Abre **Ajustes → Obsidian**, introduce la URL y el token del plugin, prueba la conexión y configura la carpeta raíz, Inbox y formato del archivo. La URL HTTP local predeterminada es `http://127.0.0.1:27123`; HTTPS también funciona si tu navegador confía en el certificado.
+FrameNotes guarda las notas localmente y, de forma opcional, sincroniza cada vídeo como una única nota Markdown de Obsidian usando el plugin comunitario **Local REST API**.
 
-Durante un vídeo, el botón de nota general abre un espacio independiente para el resumen y la organización. El botón de notas temporales queda dedicado a la lista de timestamps. Desde ambos editores puedes gestionar:
+Para configurarla:
 
-- la nota general (resumen o conclusiones);
-- la carpeta de destino, o déjala vacía para usar Inbox;
-- tags del vídeo con sugerencias procedentes del vault;
-- tags propios en cada nota con timestamp;
-- las notas con timestamp existentes.
+1. Instala y activa **Local REST API** en Obsidian y copia su token.
+2. En **Ajustes → Obsidian**, introduce la URL (por defecto `http://127.0.0.1:27123`) y el token.
+3. Pulsa **probar conexión** y define la carpeta raíz, el Inbox y el formato de archivo.
 
-Con la integración habilitada, los cambios se guardan localmente y se intentan sincronizar automáticamente tras una breve pausa: nota general, tags, carpeta y notas timestamp. Si Obsidian está cerrado, permanecen pendientes. La extensión reintenta al iniciar el navegador, al recuperar/cambiar la configuración y cada minuto. Los botones de sincronización permiten forzar un reintento, pero no son necesarios en el flujo normal.
+Puedes personalizar el **nombre del archivo** (con `{video_title}`, `{channel}`, `{date}` y `{video_id}`) y la **plantilla Markdown** (con `{{frontmatter}}`, `{{title}}`, `{{general_note}}`, `{{timestamp_notes}}`, `{{url}}`, `{{channel}}`, `{{video_id}}` y `{{tags}}`). Ambos pueden guardarse como **presets** reutilizables.
 
-Visitar un vídeo no crea por sí solo ningún archivo en el vault. La nota Markdown aparece únicamente después de añadir una nota general, un tag, un marker o un favorito. El formato de exportación queda asociado al vídeo en ese primer apunte, por lo que cambiar posteriormente los ajustes de contenido o plantilla solo afecta a vídeos nuevos.
+La nota generada incluye frontmatter YAML (fuente, id de vídeo, canal, URL, fecha y tags), la nota general y las notas con timestamp ordenadas. Tus enlaces wiki (`[[…]]`) y tu Markdown se conservan.
 
-La carpeta predeterminada es una única ruta relativa al vault, por ejemplo `YouTube/Inbox` o `IA/Modelos`. Cada vídeo puede sustituirla con su propia carpeta. El nombre de archivo es editable con `{video_title}`, `{channel}`, `{date}` y `{video_id}`. La plantilla Markdown también es editable mediante `{{frontmatter}}`, `{{title}}`, `{{general_note}}`, `{{timestamp_notes}}`, `{{url}}`, `{{channel}}`, `{{video_id}}` y `{{tags}}`. El editor permite insertar estas variables como piezas, sin tener que escribirlas de memoria. Tanto los formatos de nombre como las plantillas pueden guardarse como presets personalizados y reutilizarse o eliminarse desde los ajustes. La plantilla predeterminada no repite el título como encabezado dentro de la nota.
+Los cambios se guardan siempre localmente y se sincronizan solos cuando Obsidian está abierto. Si está cerrado, quedan pendientes y se reintentan automáticamente al abrir el navegador o cada minuto.
 
-Todas las opciones exportadas se muestran en una lista donde pueden activarse, desactivarse y reordenarse arrastrándolas o mediante sus flechas. Fuente, ID, canal, URL, fecha de creación de la nota y fecha de publicación del vídeo pueden configurarse por separado. Tags y enlaces de YouTube conservan su relación semántica con el frontmatter y las notas timestamp.
+## Apariencia y ajustes
 
-El editor de organización consulta `GET /tags/` y recorre `GET /vault/` cuando Obsidian está disponible. Muestra selectores visibles y filtrables con los tags y carpetas existentes, incluidas subcarpetas. También permite crear valores nuevos; los tags se muestran como chips y no se convierten automáticamente en carpetas.
+- **Panel de transcripción**: color de fondo y de texto, tipografía, tamaño y opacidad.
+- **Ventanas de notas**: mismas opciones, compartidas o por separado.
+- **Continuidad entre vídeos**: mantener la velocidad y recordar la posición del panel.
+- **Tema claro/oscuro** e **idioma** (español/inglés).
 
-La nota generada contiene frontmatter YAML (`source`, `video_id`, canal, URL, fecha y tags), nota general y notas temporales ordenadas. El Markdown del usuario, incluidos wikilinks como `[[Gradient Descent]]`, se conserva. Cada nota temporal puede incluir un enlace directo al instante de YouTube.
+## Para desarrolladores
 
-## Permisos
+Extensión **Manifest V3** sin dependencias de compilación: los módulos se cargan directamente como scripts de contenido y el popup usa módulos ES.
+
+### Permisos
 
 - `storage`: datos, configuración y estado de sincronización.
-- `activeTab` y `scripting`: funciones existentes sobre la pestaña de YouTube.
-- acceso a `youtube.com` y `video.google.com`: reproducción y transcripción.
-
-- acceso HTTP/HTTPS exclusivamente a `127.0.0.1` y `localhost`: comunicación con Local REST API;
+- `activeTab` y `scripting`: funciones sobre la pestaña de YouTube.
+- Acceso a `youtube.com` y `video.google.com`: reproducción y transcripción.
+- Acceso HTTP/HTTPS solo a `127.0.0.1` y `localhost`: comunicación con Local REST API.
 - `alarms`: reintentos periódicos de la cola offline.
 
-El token se guarda en el almacenamiento local de la extensión, no se registra y sólo se utiliza desde el service worker para comunicarse con loopback.
+El token de Obsidian se guarda en el almacenamiento local de la extensión, no se registra y solo se usa desde el service worker para hablar con loopback.
 
-## Limitaciones
+### Pruebas
 
-Local REST API debe estar instalado y Obsidian abierto para completar una sincronización, pero no mientras se toman notas. La cola no es un sistema de resolución de conflictos: la extensión considera sus datos locales como fuente de verdad y sobrescribe su archivo asociado al volver a conectar. Esta versión no incluye IA, RAG ni búsqueda semántica.
+Ejecuta desde la raíz del proyecto:
 
-## Pruebas
+```bash
+node --test tests/*.test.js
+```
 
-Ejecuta `node --test tests/*.test.js` desde la raíz del proyecto.
+### Limitaciones
+
+- Para completar una sincronización, **Local REST API** debe estar instalado y Obsidian abierto (no es necesario mientras tomas notas) pero no se estarán mandando a la carpeta local mientras no se cumplan estas condiciones.
+- La cola no resuelve conflictos: la extensión considera sus datos locales como fuente de verdad y sobrescribe su archivo asociado al reconectar a un mismo video que ya tenía notas previas.
+
